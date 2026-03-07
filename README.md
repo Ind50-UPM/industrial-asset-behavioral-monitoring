@@ -1,5 +1,3 @@
-# industrial-asset-behavioral-monitoring
-
 # Industrial Asset Behavioral Monitoring
 
 Implementation, datasets, and experimental workflows supporting a **data-driven framework for industrial asset monitoring** based on **operational-state identification and hierarchical behavioral modeling** using Industrial Internet of Things (IIoT) data.
@@ -7,7 +5,7 @@ Implementation, datasets, and experimental workflows supporting a **data-driven 
 This repository accompanies the research work:
 
 > **"A Data-Driven Behavioral Monitoring Framework for Industrial Assets"**  
-> submitted to *Computers in Industry*.
+> being submitted to *Computers in Industry*.
 
 The proposed approach enables the identification of operational states from sensor measurements (e.g., electrical signatures and process variables) and aggregates them into interpretable behavioral patterns that support **industrial monitoring, anomaly detection, and maintenance-oriented decision-making**.
 
