@@ -67,7 +67,7 @@ Due to potential industrial sensitivity, the repository may contain:
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-user>/industrial-asset-behavioral-monitoring.git
+git clone https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring.git
 cd industrial-asset-behavioral-monitoring
 ```
 
