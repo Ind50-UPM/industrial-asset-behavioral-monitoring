@@ -12,6 +12,8 @@ from typing import Callable
 from src.models import StateClassifier
 from src.data_processor import IndustrialDataProcessor 
 from src.utils import setup_i18n
+from sklearn.preprocessing import LabelEncoder
+from sklearn.pipeline import Pipeline
 
 def parse_arguments(translator: Callable[[str], str]) -> argparse.Namespace:
     """Configura los argumentos de la línea de comandos con soporte i18n."""
@@ -98,8 +100,11 @@ def main() -> None:
                         args.algo.upper()
         print(_t("[*] Iniciando validación cruzada: {} a {}").format(
             args.start, args.end))
-        X, y = processor.get_training_data(args.start, args.end)
+        X, y_orig = processor.get_training_data(args.start, args.end)
         
+        le = LabelEncoder()
+        y  = le.fit_transform(y_orig)
+
         model_wrapper = StateClassifier(model_type=args.algo, translator=_t)
         
         # Implementación de K-Fold Cross Validation
@@ -107,7 +112,11 @@ def main() -> None:
         # Escalamos antes de validar para mantener consistencia
         X_scaled = model_wrapper.scaler.fit_transform(X)
         scores = cross_val_score(model_wrapper.clf, X_scaled, y, cv=kf)
-        
+        pipeline = Pipeline([
+            ('scaler', model_wrapper.scaler),
+            ('clf', model_wrapper.clf)
+        ])
+        scores = cross_val_score(pipeline, X, y, cv=kf)        
         # Reporte de resultados por fold
         for i, score in enumerate(scores):
             print(_t("Fold {}: Accuracy = {:.4f}").format(i+1, score))
@@ -131,9 +140,15 @@ def main() -> None:
         
         # Entrenamiento final con todos los datos y guardado
         model_wrapper.train(X, y) 
-        os.makedirs(os.path.dirname(args.output), exist_ok=True)
         mes_file = dout+bname+".joblib"
-        model_wrapper.save(mes_file)
+        os.makedirs(os.path.dirname(mes_file), exist_ok=True)
+        # Crea un diccionario con todo lo necesario
+        data_to_save = {
+            "model": model_wrapper.clf,
+            "scaler": model_wrapper.scaler,
+            "label_encoder": le  
+        }
+        joblib.dump(data_to_save, mes_file)
         print(_t("[+] Modelo guardado en: {}").format(mes_file))
 
     elif args.mode == 'predict':
@@ -141,6 +156,7 @@ def main() -> None:
         model_data = joblib.load(args.model_out)
         model = model_data["model"]
         scaler = model_data["scaler"]
+        le = model_data["label_encoder"]
 
         print(_t("[*] Cargando datos para predicción: {} a {}").format(
                             args.start, args.end))
@@ -148,7 +164,9 @@ def main() -> None:
         
         # Predicción con el modelo cargado
         X_test_scaled = scaler.transform(X_test)
-        predictions = model.predict(X_test_scaled)
+        predictions_encoded = model.predict(X_test_scaled)
+        # ¡TRADUCCIÓN!: De [0, 1, 2] volvemos a [1, 12, 63...]
+        predictions = le.inverse_transform(predictions_encoded)
         
         # Guardar predicciones
         bname= os.path.basename(args.data_ana) 

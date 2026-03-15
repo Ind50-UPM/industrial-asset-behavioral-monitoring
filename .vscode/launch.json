@@ -27,15 +27,18 @@
             "name": "Train: XGBoost (Model_A)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/Model_A/main.py",
+            "program": "${workspaceFolder}/src/Model_A/src/main.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/src/Model_A",
             "args": [
                 "--mode", "train",
                 "--algo", "xgb",
-                "--data", "../../data/analogicas_nonans.parquet",
+                "--data_ana", "../../data/analogicas_nonans.parquet",
+                "--data_dig", "../../data/digitales.parquet",
                 "--start", "2022-01-18 00:00:00",
                 "--end", "2022-02-18 00:00:00",
+                "--model_out", "../models/Modela_A/",
+                "--pred_out", "../predictions/Modela_A/",
                 "--lang", "es"
             ],
             "env": {
