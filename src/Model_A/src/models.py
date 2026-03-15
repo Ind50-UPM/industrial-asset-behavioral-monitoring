@@ -46,7 +46,7 @@ class StateClassifier:
         """Entrena el modelo y devuelve la precisión obtenida."""
         X_scaled = self.scaler.fit_transform(X)
         self.clf.fit(X_scaled, y)
-        return accuracy_score(y, self.clf.predict(X_scaled))
+        return float(accuracy_score(y, self.clf.predict(X_scaled)))
 
     def predict(self, X: pd.DataFrame):
         """Realiza predicciones sobre nuevos datos analógicos."""
