@@ -87,6 +87,11 @@ These signals support both elementary state identification and later behavioral 
 - Default validation reports and prediction exports are written under `src/predictions/Modela_A/`.
 - The `iabm` package uses English docstrings and translatable CLI messages.
 
+## Validation Resources
+
+- User-facing validation checklist: [`docs/user_validation_checklist.md`](docs/user_validation_checklist.md)
+- Sphinx documentation scaffold: [`docs/README.md`](docs/README.md)
+
 ## Current Status
 
 - `Model_A` is installable and runnable as the `iabm` package.
