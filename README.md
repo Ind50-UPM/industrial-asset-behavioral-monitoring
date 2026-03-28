@@ -1,83 +1,102 @@
 # Industrial Asset Behavioral Monitoring
 
-Implementation, datasets, and experimental workflows supporting a **data-driven framework for industrial asset monitoring** based on **operational-state identification and hierarchical behavioral modeling** using Industrial Internet of Things (IIoT) data.
+[![CI](https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring/actions/workflows/ci.yml)
+
+Implementation, datasets, and experimental workflows supporting a data-driven framework for industrial asset monitoring based on operational-state identification and hierarchical behavioral modeling with Industrial Internet of Things (IIoT) data.
 
 This repository accompanies the research work:
 
 > **"A Data-Driven Behavioral Monitoring Framework for Industrial Assets"**  
-> being submitted to *Computers in Industry*.
+> submitted to *Computers in Industry*.
 
-The proposed approach enables the identification of operational states from sensor measurements (e.g., electrical signatures and process variables) and aggregates them into interpretable behavioral patterns that support **industrial monitoring, anomaly detection, and maintenance-oriented decision-making**.
+## Overview
 
----
+The repository is organized around the progressive modeling layers described in the paper:
 
-# Overview
+- `Model_A`: elementary operating-state identification from analog and digital signals
+- `Model_B`: temporal and behavioral modeling on top of state sequences
+- `Model_C`: higher-level semantic, generalization, or deployment-oriented extensions
 
-Industrial assets operating in remote or weakly instrumented environments often lack sufficient monitoring capabilities to fully characterize their operational behavior.
+At the moment, `Model_A` is the most complete reusable package in the repository.
 
-This repository provides the **datasets, algorithms, and analysis workflows** used to:
+## Repository Structure
 
-- infer **operational states** from sensor measurements
-- aggregate elementary states into **behavioral sequences**
-- characterize **operational modes**
-- detect **abnormal operational behavior**
-- support **maintenance-oriented interpretation**
+```text
+industrial-asset-behavioral-monitoring/
+├── data/
+│   ├── analogicas_nonans.parquet
+│   └── digitales.parquet
+├── src/
+│   ├── Model_A/
+│   │   ├── iabm/
+│   │   ├── locales/
+│   │   ├── pyproject.toml
+│   │   └── README.md
+│   ├── models/
+│   ├── predictions/
+│   └── README.md
+└── README.md
+```
 
-The methodology integrates:
+## Model_A
 
-- Industrial IoT data acquisition
-- Machine learning–based state identification
-- Hierarchical behavioral modeling
-- Temporal sequence analysis
-- Anomaly detection
+`Model_A` is packaged as `iabm`, short for `Industrial Asset Behavioral Monitoring`.
 
-The approach has been validated on a **real industrial installation**, demonstrating its ability to reconstruct asset behavior and detect abnormal conditions.
+It currently provides:
 
----
+- supervised state identification with Random Forest and XGBoost
+- study-compatible preprocessing and NaN imputation
+- stratified cross-validation
+- model persistence with scaler, label encoder, and feature ordering
+- prediction on new analog data without digital labels at inference time
+- bilingual CLI support in English and Spanish
 
-# Repository Structure
+Package-specific documentation is available in [`src/Model_A/README.md`](src/Model_A/README.md).
 
-Pendiente el tree para cuando esté montada la estructura
+## Installation
 
-
----
-
-# Dataset Description
-
-The dataset contains measurements obtained from a **real industrial asset monitoring system** deployed in an operational environment.
-
-Typical recorded variables include:
-
-- electrical measurements (voltage, current, phase angle)
-- energy consumption indicators
-- digital control signals
-- complementary process variables
-
-These signals enable the reconstruction of **operational states and behavioral sequences** describing the functioning of the asset.
-
-Due to potential industrial sensitivity, the repository may contain:
-
-- a **sample dataset** for reproducibility
-- preprocessed datasets used for experiments
-
----
-
-# Reproducing the Experiments
-
-## 1. Clone the repository
+To work with the reusable `Model_A` package:
 
 ```bash
 git clone https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring.git
-cd industrial-asset-behavioral-monitoring
+cd industrial-asset-behavioral-monitoring/src/Model_A
+poetry install
 ```
 
-## 2. Install dependencies
+You can then use either the installed CLI or the package module directly:
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r environment/requirements.txt
+poetry run industrial-id --help
+python -m iabm.main --help
 ```
 
+## Data
 
+The datasets included in `data/` represent industrial monitoring signals from a real deployment. Typical variables include:
 
+- electrical measurements such as voltage, current, power, and power factor
+- digital control or status signals
+- complementary process-related variables
+
+These signals support both elementary state identification and later behavioral aggregation.
+
+## Reproducibility Notes
+
+- Default `Model_A` inputs are resolved from `data/analogicas_nonans.parquet` and `data/digitales.parquet`.
+- Default trained artifacts are written under `src/models/Modela_A/`.
+- Default validation reports and prediction exports are written under `src/predictions/Modela_A/`.
+- The `iabm` package uses English docstrings and translatable CLI messages.
+
+## Current Status
+
+- `Model_A` is installable and runnable as the `iabm` package.
+- The training workflow includes stratified cross-validation, artifact persistence, and report export.
+- The inference workflow reuses saved artifacts and does not require digital labels at prediction time.
+- Repository-level documentation has been aligned with the current package structure.
+
+## Next Steps
+
+- Extend the same package-oriented structure to `Model_B` and `Model_C`.
+- Add explicit benchmark comparisons for additional ML and DL approaches where required by the paper.
+- Expand automated tests around training windows, class imbalance, and artifact compatibility.
+- Refine the higher-level narrative so code, experiments, and manuscript sections evolve together.

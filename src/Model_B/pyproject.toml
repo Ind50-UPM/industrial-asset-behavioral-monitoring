@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "industrial-behavior-model-b"
+version = "0.1.0"
+description = "Behavioral sequence modeling package for industrial asset monitoring"
+authors = ["Antonio Bello-García", "Javier Villalba-Díez", "Ana González-Marcos", "Joaquín Ordieres-Meré"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "iabm_behavior"}]
+include = [
+    { path = "locales/**/*.po", format = ["sdist", "wheel"] },
+    { path = "locales/messages.pot", format = ["sdist", "wheel"] }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.26.0"
+pandas = "^2.1.0"
+pyarrow = "^14.0.0"
+openpyxl = "^3.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+industrial-behavior = "iabm_behavior.main:main"

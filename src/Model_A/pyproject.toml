@@ -5,7 +5,11 @@ description = "Framework para la identificación de estados operativos en activo
 authors = ["Antonio Bello-García", "Javier Villalba-Díez", "Ana González-Marcos", "Joaquín Ordieres-Meré"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "src"}]
+packages = [{include = "iabm"}]
+include = [
+    { path = "locales/**/*.po", format = ["sdist", "wheel"] },
+    { path = "locales/messages.pot", format = ["sdist", "wheel"] }
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -28,4 +32,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-industrial-id = "main:main"
+industrial-id = "iabm.main:main"
