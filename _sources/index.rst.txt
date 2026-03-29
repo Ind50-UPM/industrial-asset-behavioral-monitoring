@@ -1,18 +1,32 @@
 Industrial Asset Behavioral Monitoring
 ======================================
 
-This documentation site collects the API reference for the three modeling
-layers currently implemented in the repository:
+A documentation site for the public repository accompanying the framework for
+operational-state inference, behavioral sequence analysis, semantic contextualization,
+and abnormality detection in weakly instrumented industrial assets.
 
-* ``Model_A`` for industrial state identification
-* ``Model_B`` for behavioral sequence analysis and anomaly comparison
-* ``Model_C`` for semantic operating-mode interpretation
+Main components
+---------------
+
+- **Model_A**: operational-state inference from analog and digital signals
+- **Model_B**: behavioral sequence extraction and anomaly-oriented comparison
+- **Model_C**: semantic interpretation of operating and working modes
+
+Quick links
+-----------
+
+- :doc:`overview`
+- :doc:`reproducibility`
+- :doc:`model_a`
+- :doc:`model_b`
+- :doc:`model_c`
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents
+   :hidden:
 
    overview
+   reproducibility
    model_a
    model_b
    model_c

@@ -52,8 +52,6 @@ Where to Start
 
 For most users, the recommended reading order is:
 
-- :doc:`overview`
-- :doc:`reproducibility`
 - :doc:`model_a`
 - :doc:`model_b`
 - :doc:`model_c`
