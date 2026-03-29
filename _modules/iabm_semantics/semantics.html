@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iabm_semantics.semantics &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for iabm_semantics.semantics</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Semantic interpretation utilities for Model_C.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+
+<span class="n">DEFAULT_COMPONENT_MAP</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;DIVING_PUMP_1&quot;</span><span class="p">,</span>
+    <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;DIVING_PUMP_2&quot;</span><span class="p">,</span>
+    <span class="mi">4</span><span class="p">:</span> <span class="s2">&quot;FEEDBACK_PUMP_1&quot;</span><span class="p">,</span>
+    <span class="mi">8</span><span class="p">:</span> <span class="s2">&quot;FEEDBACK_PUMP_2&quot;</span><span class="p">,</span>
+    <span class="mi">16</span><span class="p">:</span> <span class="s2">&quot;FLOCCULANT_PUMP&quot;</span><span class="p">,</span>
+    <span class="mi">32</span><span class="p">:</span> <span class="s2">&quot;BASIN_PUMP&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="SemanticRule">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticRule">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SemanticRule</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Define an explicit semantic label for a sequence of components.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        required_components: Components that must all be present.</span>
+<span class="sd">        operating_mode: High-level operating-mode label.</span>
+<span class="sd">        working_mode: More specific working-mode label.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">required_components</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">operating_mode</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">working_mode</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+
+<div class="viewcode-block" id="SemanticAssignment">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticAssignment">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SemanticAssignment</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represent the semantic interpretation of one active sequence.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        sequence_states: Original sequence word.</span>
+<span class="sd">        components: Sorted tuple of unique components involved.</span>
+<span class="sd">        operating_mode: High-level operating-mode label.</span>
+<span class="sd">        working_mode: More specific working-mode label.</span>
+<span class="sd">        semantic_status: Normal or anomalous semantic status.</span>
+<span class="sd">        anomaly_score: Optional anomaly score inherited from Model_B.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sequence_states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">components</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">operating_mode</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">working_mode</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">semantic_status</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">anomaly_score</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="SemanticModeInterpreter">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticModeInterpreter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SemanticModeInterpreter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Interpret Model_B active sequences as operating and working modes.</span>
+
+<span class="sd">    The interpreter decodes state words into component activity, assigns</span>
+<span class="sd">    semantic labels through a combination of explicit rules and heuristics, and</span>
+<span class="sd">    can enrich the result with anomaly information generated by Model_B.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">component_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rules</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">SemanticRule</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the interpreter with component and semantic mappings.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            component_map: Optional override for the default state-bitmask to</span>
+<span class="sd">                component mapping.</span>
+<span class="sd">            rules: Optional explicit semantic rules evaluated before heuristics.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">component_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">component_map</span> <span class="ow">or</span> <span class="n">DEFAULT_COMPONENT_MAP</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rules</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">rules</span> <span class="ow">or</span> <span class="p">[])</span>
+
+<div class="viewcode-block" id="SemanticModeInterpreter.load_active_sequences">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticModeInterpreter.load_active_sequences">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_active_sequences</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load Model_B active sequences from Excel, CSV, or Parquet.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file_path: Path to the active-sequence report exported by Model_B.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A DataFrame ready for semantic interpretation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.parquet&quot;</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;.xlsx&quot;</span><span class="p">,</span> <span class="s2">&quot;.xls&quot;</span><span class="p">}:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.csv&quot;</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported file extension: </span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span></div>
+
+
+<div class="viewcode-block" id="SemanticModeInterpreter.load_comparison_report">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticModeInterpreter.load_comparison_report">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_comparison_report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a Model_B sequence-comparison report.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file_path: Path to the comparison report exported by Model_B.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A DataFrame aligned with the active-sequence report.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_active_sequences</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SemanticModeInterpreter.load_rules">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticModeInterpreter.load_rules">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_rules</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SemanticRule</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load semantic rules from a JSON file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file_path: Path to a JSON file containing semantic-rule records.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The parsed list of semantic rules stored in the interpreter.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rules</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">SemanticRule</span><span class="p">(</span>
+                <span class="n">required_components</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;required_components&quot;</span><span class="p">]),</span>
+                <span class="n">operating_mode</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;operating_mode&quot;</span><span class="p">],</span>
+                <span class="n">working_mode</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;working_mode&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">payload</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rules</span></div>
+
+
+<div class="viewcode-block" id="SemanticModeInterpreter.interpret_sequences">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticModeInterpreter.interpret_sequences">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interpret_sequences</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">comparison</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign semantic operating and working modes to sequence rows.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sequences: Active sequence report produced by Model_B.</span>
+<span class="sd">            comparison: Optional anomaly-comparison report produced by Model_B.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A DataFrame containing semantic assignments for each sequence.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">comparison</span> <span class="o">=</span> <span class="n">comparison</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">comparison</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">assignments</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">sequences</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="c1"># Sequence words are serialized in Model_B reports, so they are</span>
+            <span class="c1"># decoded first and then mapped to industrial components.</span>
+            <span class="n">states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_states</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;states&quot;</span><span class="p">])</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decode_sequence_components</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+            <span class="n">operating_mode</span><span class="p">,</span> <span class="n">working_mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign_modes</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+
+            <span class="n">anomaly_score</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">semantic_status</span> <span class="o">=</span> <span class="s2">&quot;NORMAL&quot;</span>
+            <span class="k">if</span> <span class="n">comparison</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">comparison</span><span class="p">):</span>
+                <span class="n">anomaly_score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">comparison</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="s2">&quot;anomaly_score&quot;</span><span class="p">])</span>
+                <span class="n">semantic_status</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;ANOMALOUS&quot;</span> <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">comparison</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="s2">&quot;is_anomalous&quot;</span><span class="p">])</span> <span class="k">else</span> <span class="s2">&quot;NORMAL&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">assignments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">SemanticAssignment</span><span class="p">(</span>
+                    <span class="n">sequence_states</span><span class="o">=</span><span class="n">states</span><span class="p">,</span>
+                    <span class="n">components</span><span class="o">=</span><span class="n">components</span><span class="p">,</span>
+                    <span class="n">operating_mode</span><span class="o">=</span><span class="n">operating_mode</span><span class="p">,</span>
+                    <span class="n">working_mode</span><span class="o">=</span><span class="n">working_mode</span><span class="p">,</span>
+                    <span class="n">semantic_status</span><span class="o">=</span><span class="n">semantic_status</span><span class="p">,</span>
+                    <span class="n">anomaly_score</span><span class="o">=</span><span class="n">anomaly_score</span><span class="p">,</span>
+                <span class="p">)</span><span class="o">.</span><span class="vm">__dict__</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SemanticModeInterpreter.summarize_modes">
+<a class="viewcode-back" href="../../model_c.html#iabm_semantics.SemanticModeInterpreter.summarize_modes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summarize_modes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assignments</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Summarize interpreted modes across all assignments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            assignments: Per-sequence semantic assignments.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            An aggregated count table grouped by operating mode, working mode,</span>
+<span class="sd">            and semantic status.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">assignments</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;operating_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;working_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;semantic_status&quot;</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">assignments</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;operating_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;working_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;semantic_status&quot;</span><span class="p">],</span>
+                <span class="n">dropna</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">size</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;count&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">summary</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_decode_sequence_components</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decode a state word into a sorted set of active components.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            states: Sequence word represented as integer state identifiers.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A sorted tuple of unique components activated across the sequence.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">components</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">bitmask</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">component_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="o">&amp;</span> <span class="n">bitmask</span><span class="p">:</span>
+                    <span class="n">components</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">components</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_modes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign operating and working modes using rules and heuristics.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            components: Unique components active in the interpreted sequence.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A tuple containing the operating-mode and working-mode labels.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">component_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">rules</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">required_components</span><span class="p">)</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">component_set</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">rule</span><span class="o">.</span><span class="n">operating_mode</span><span class="p">,</span> <span class="n">rule</span><span class="o">.</span><span class="n">working_mode</span>
+
+        <span class="c1"># The default heuristic mapping provides a first operational vocabulary</span>
+        <span class="c1"># that can later be replaced or refined with explicit semantic rules.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">components</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;IDLE&quot;</span><span class="p">,</span> <span class="s2">&quot;NO_ACTIVE_COMPONENTS&quot;</span>
+
+        <span class="k">if</span> <span class="s2">&quot;BASIN_PUMP&quot;</span> <span class="ow">in</span> <span class="n">component_set</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;TRANSFER_MODE&quot;</span><span class="p">,</span> <span class="s2">&quot;BASIN_TRANSFER&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;FLOCCULANT_PUMP&quot;</span> <span class="ow">in</span> <span class="n">component_set</span> <span class="ow">and</span> <span class="n">component_set</span> <span class="o">&amp;</span> <span class="p">{</span><span class="s2">&quot;DIVING_PUMP_1&quot;</span><span class="p">,</span> <span class="s2">&quot;DIVING_PUMP_2&quot;</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="s2">&quot;TREATMENT_MODE&quot;</span><span class="p">,</span> <span class="s2">&quot;FLOCCULANT_ASSISTED_CYCLE&quot;</span>
+        <span class="k">if</span> <span class="n">component_set</span> <span class="o">&amp;</span> <span class="p">{</span><span class="s2">&quot;FEEDBACK_PUMP_1&quot;</span><span class="p">,</span> <span class="s2">&quot;FEEDBACK_PUMP_2&quot;</span><span class="p">}</span> <span class="ow">and</span> <span class="n">component_set</span> <span class="o">&amp;</span> <span class="p">{</span><span class="s2">&quot;DIVING_PUMP_1&quot;</span><span class="p">,</span> <span class="s2">&quot;DIVING_PUMP_2&quot;</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="s2">&quot;RECIRCULATION_MODE&quot;</span><span class="p">,</span> <span class="s2">&quot;DIVING_FEEDBACK_CYCLE&quot;</span>
+        <span class="k">if</span> <span class="n">component_set</span> <span class="o">&lt;=</span> <span class="p">{</span><span class="s2">&quot;DIVING_PUMP_1&quot;</span><span class="p">,</span> <span class="s2">&quot;DIVING_PUMP_2&quot;</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="s2">&quot;PUMPING_MODE&quot;</span><span class="p">,</span> <span class="s2">&quot;DIVING_ONLY&quot;</span>
+        <span class="k">if</span> <span class="n">component_set</span> <span class="o">&lt;=</span> <span class="p">{</span><span class="s2">&quot;FEEDBACK_PUMP_1&quot;</span><span class="p">,</span> <span class="s2">&quot;FEEDBACK_PUMP_2&quot;</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="s2">&quot;RECIRCULATION_MODE&quot;</span><span class="p">,</span> <span class="s2">&quot;FEEDBACK_ONLY&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;COMPOSITE_MODE&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_states</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse serialized state tuples from Model_B reports.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            value: Serialized or already structured state tuple.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A normalized tuple of integer state identifiers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">)</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">parsed</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_c.html">Model_C API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
