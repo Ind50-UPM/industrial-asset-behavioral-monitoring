@@ -205,6 +205,12 @@ Expected outputs are written under:
 - `Model_C` is installable and runnable as the `iabm_semantics` package for semantic interpretation of behavioral patterns.
 - The repository now exposes the full three-layer package structure at the root level.
 
+## Online documentation
+
+Project documentation is available at:
+https://ind50-upm.github.io/industrial-asset-behavioral-monitoring/
+
+
 ## Correspondence with the paper
 
 The repository mirrors the empirical workflow reported in Section 4 of the paper:
