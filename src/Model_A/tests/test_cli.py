@@ -155,3 +155,10 @@ def test_cli_evaluate_workflow(
 
     roc_files = list(evaluation_dir.glob("roc_*.png"))
     assert len(roc_files) == 2
+    roc_pdf_files = list(evaluation_dir.glob("roc_*.pdf"))
+    assert len(roc_pdf_files) == 2
+
+    confusion_files = list(evaluation_dir.glob("cm_*.png"))
+    assert len(confusion_files) == 2
+    confusion_pdf_files = list(evaluation_dir.glob("cm_*.pdf"))
+    assert len(confusion_pdf_files) == 2

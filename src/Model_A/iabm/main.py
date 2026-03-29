@@ -287,6 +287,15 @@ def _run_evaluation(
         )
         return
 
+    for model_name, confusion_plot in _save_confusion_matrix_plots(
+        evaluation_frame=evaluation_frame,
+        evaluation_data=evaluation_data,
+        model_paths=model_paths,
+        output_dir=prediction_output,
+        translator=translator,
+    ):
+        print(translator("Confusion matrix saved to: {}").format(confusion_plot))
+
     for model_name, roc_plot in _save_roc_plots(
         evaluation_frame=evaluation_frame,
         evaluation_data=evaluation_data,
@@ -448,7 +457,7 @@ def _save_roc_plots(
     output_dir: Path,
     translator: Callable[[str], str],
 ) -> list[tuple[str, Path]]:
-    """Render one ROC plot per model when real active labels are available."""
+    """Render one ROC PNG per model and a title-free PDF companion."""
     saved_plots: list[tuple[str, Path]] = []
     labels = evaluation_data.labels
     if labels is None:
@@ -496,18 +505,101 @@ def _save_roc_plots(
             continue
 
         axis.plot([0, 1], [0, 1], linestyle="--", color="grey", linewidth=1)
-        axis.set_title(f"ROC - {model_name}")
         axis.set_xlabel("False Positive Rate")
         axis.set_ylabel("True Positive Rate")
         axis.legend(loc="lower right")
         axis.grid(alpha=0.2)
-        plot_path = output_dir / f"roc_{_sheet_name(model_name)}.png"
-        figure.tight_layout()
-        figure.savefig(plot_path, dpi=150)
+        plot_stem = output_dir / f"roc_{_sheet_name(model_name)}"
+        plot_path = _save_plot_variants(
+            figure=figure,
+            axis=axis,
+            stem=plot_stem,
+            title=f"ROC - {model_name}",
+        )
         plt.close(figure)
         saved_plots.append((model_name, plot_path))
 
     return saved_plots
+
+
+def _save_confusion_matrix_plots(
+    *,
+    evaluation_frame: pd.DataFrame,
+    evaluation_data: EvaluationDataset,
+    model_paths: list[Path],
+    output_dir: Path,
+    translator: Callable[[str], str],
+) -> list[tuple[str, Path]]:
+    """Render one confusion-matrix PNG per model and a title-free PDF companion."""
+    saved_plots: list[tuple[str, Path]] = []
+    labels = evaluation_data.labels
+    if labels is None:
+        return saved_plots
+
+    true_labels = labels.astype(np.int32)
+    for model_path in model_paths:
+        classifier = StateClassifier.load(str(model_path), translator=translator)
+        model_name = _build_model_label(classifier, model_path, pd.Index([]))
+        predictions = evaluation_frame[model_name].astype(np.int32)
+        class_labels = np.unique(
+            np.concatenate([true_labels.to_numpy(), predictions.to_numpy()])
+        )
+        matrix = confusion_matrix(true_labels, predictions, labels=class_labels)
+
+        figure, axis = plt.subplots(figsize=(6.5, 5.5))
+        image = axis.imshow(matrix, cmap="Blues")
+        figure.colorbar(image, ax=axis, fraction=0.046, pad=0.04)
+
+        axis.set_xlabel("Predicted label")
+        axis.set_ylabel("True label")
+        axis.set_xticks(np.arange(len(class_labels)))
+        axis.set_yticks(np.arange(len(class_labels)))
+        axis.set_xticklabels(class_labels)
+        axis.set_yticklabels(class_labels)
+
+        threshold = matrix.max() / 2 if matrix.size else 0
+        for row_index in range(matrix.shape[0]):
+            for column_index in range(matrix.shape[1]):
+                value = matrix[row_index, column_index]
+                axis.text(
+                    column_index,
+                    row_index,
+                    str(value),
+                    ha="center",
+                    va="center",
+                    color="white" if value > threshold else "black",
+                )
+
+        plot_stem = output_dir / f"cm_{_sheet_name(model_name)}"
+        plot_path = _save_plot_variants(
+            figure=figure,
+            axis=axis,
+            stem=plot_stem,
+            title=f"Confusion Matrix - {model_name}",
+        )
+        plt.close(figure)
+        saved_plots.append((model_name, plot_path))
+
+    return saved_plots
+
+
+def _save_plot_variants(
+    *,
+    figure: plt.Figure,
+    axis: plt.Axes,
+    stem: Path,
+    title: str,
+) -> Path:
+    """Save a titled PNG and a title-free vector PDF for the same figure."""
+    axis.set_title(title)
+    figure.tight_layout()
+    png_path = stem.with_suffix(".png")
+    figure.savefig(png_path, dpi=150)
+
+    axis.set_title("")
+    figure.tight_layout()
+    figure.savefig(stem.with_suffix(".pdf"))
+    return png_path
 
 
 def _sanitize_period_component(value: str) -> str:
