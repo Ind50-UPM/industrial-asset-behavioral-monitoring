@@ -83,8 +83,8 @@ Unless overridden by CLI arguments, `Model_A` resolves paths relative to the rep
 
 - analog data: `data/analogicas_nonans.parquet`
 - digital data: `data/digitales.parquet`
-- trained artifacts: `src/models/Modela_A/`
-- validation reports and predictions: `src/predictions/Modela_A/`
+- trained artifacts: `src/models/Model_A/`
+- validation reports and predictions: `src/predictions/Model_A/`
 
 ## Python API
 

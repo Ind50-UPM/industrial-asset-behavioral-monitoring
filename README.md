@@ -83,8 +83,8 @@ These signals support both elementary state identification and later behavioral 
 ## Reproducibility Notes
 
 - Default `Model_A` inputs are resolved from `data/analogicas_nonans.parquet` and `data/digitales.parquet`.
-- Default trained artifacts are written under `src/models/Modela_A/`.
-- Default validation reports and prediction exports are written under `src/predictions/Modela_A/`.
+- Default trained artifacts are written under `src/models/Model_A/`.
+- Default validation reports and prediction exports are written under `src/predictions/Model_A/`.
 - The `iabm` package uses English docstrings and translatable CLI messages.
 
 ## Validation Resources

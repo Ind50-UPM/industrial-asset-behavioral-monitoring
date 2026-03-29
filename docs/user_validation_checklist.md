@@ -17,11 +17,11 @@ Validate:
 - the expected time window is processed
 - cross-validation metrics are printed
 - the `.joblib` model artifact is saved
-- the metrics Excel report is generated in `src/predictions/Modela_A`
+- the metrics Excel report is generated in `src/predictions/Model_A`
 
 Expected artifacts:
-- `src/models/Modela_A/analogicas_nonans.parquet_RF.joblib`
-- metrics Excel report in `src/predictions/Modela_A`
+- `src/models/Model_A/analogicas_nonans.parquet_RF.joblib`
+- metrics Excel report in `src/predictions/Model_A`
 
 ## 2. Model_A Predict Random Forest
 
@@ -38,7 +38,7 @@ Validate:
 - the Excel columns and timestamps are readable
 
 Expected artifact:
-- `src/predictions/Modela_A/predictions_analogicas_nonans.parquet_RF.xlsx`
+- `src/predictions/Model_A/predictions_analogicas_nonans.parquet_RF.xlsx`
 
 ## 3. Model_A Train XGBoost
 
@@ -55,8 +55,8 @@ Validate:
 - the metrics Excel report is generated
 
 Expected artifacts:
-- `src/models/Modela_A/analogicas_nonans.parquet_XGB.joblib`
-- metrics Excel report in `src/predictions/Modela_A`
+- `src/models/Model_A/analogicas_nonans.parquet_XGB.joblib`
+- metrics Excel report in `src/predictions/Model_A`
 
 ## 4. Model_A Predict XGBoost
 
@@ -72,7 +72,7 @@ Validate:
 - the final Excel file is created in the expected output path
 
 Expected artifact:
-- `src/predictions/Modela_A/predictions_analogicas_nonans.parquet_XGB.xlsx`
+- `src/predictions/Model_A/predictions_analogicas_nonans.parquet_XGB.xlsx`
 
 ## 5. Model_B Sequence Analysis
 

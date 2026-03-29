@@ -553,8 +553,8 @@ def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path]:
     repo_root = Path(__file__).resolve().parents[3]
     analog_path = Path(args.data_ana) if args.data_ana else repo_root / "data" / "analogicas_nonans.parquet"
     digital_path = Path(args.data_dig) if args.data_dig else repo_root / "data" / "digitales.parquet"
-    default_model = repo_root / "src" / "models" / "Modela_A" / f"{analog_path.name}_{args.algo.upper()}.joblib"
-    default_reports = repo_root / "src" / "predictions" / "Modela_A"
+    default_model = repo_root / "src" / "models" / "Model_A" / f"{analog_path.name}_{args.algo.upper()}.joblib"
+    default_reports = repo_root / "src" / "predictions" / "Model_A"
     model_output = Path(args.model_out) if args.model_out else default_model
     prediction_output = Path(args.pred_out) if args.pred_out else default_reports
     return analog_path, digital_path, model_output, prediction_output

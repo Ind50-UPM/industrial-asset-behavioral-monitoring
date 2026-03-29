@@ -118,7 +118,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/src/Model_B",
             "args": [
-                "--input", "${workspaceFolder}/src/predictions/Model_A/predictions_analogicas_nonans.parquet_RF.xlsx",
+                "--input", "${workspaceFolder}/src/predictions/Modela_A/predictions_analogicas_nonans.parquet_RF.xlsx",
                 "--output-dir", "${workspaceFolder}/src/predictions/Model_B",
                 "--lang", "es",
                 "--smooth-short-runs",
@@ -137,8 +137,8 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/src/Model_B",
             "args": [
-                "--input", "${workspaceFolder}/src/predictions/Model_A/predictions_analogicas_nonans.parquet_RF.xlsx",
-                "--nominal-input", "${workspaceFolder}/src/predictions/Model_A/predictions_analogicas_nonans.parquet_XGB.xlsx",
+                "--input", "${workspaceFolder}/src/predictions/Modela_A/predictions_analogicas_nonans.parquet_RF.xlsx",
+                "--nominal-input", "${workspaceFolder}/src/predictions/Modela_A/predictions_analogicas_nonans.parquet_XGB.xlsx",
                 "--output-dir", "${workspaceFolder}/src/predictions/Model_B",
                 "--lang", "es",
                 "--smooth-short-runs",
