@@ -170,6 +170,20 @@ The datasets included in `data/` represent industrial monitoring signals from a 
 
 These signals support both elementary state identification and subsequent behavioral and semantic aggregation.
 
+## Minimal reproduction path
+
+To reproduce the main empirical workflow reported in the paper:
+
+1. Run `Model_A` to train or load the state-identification model and generate state predictions.
+2. Run `Model_B` on the resulting state timeline to extract runs, sequences, and comparison reports.
+3. Run `Model_C` on the sequence outputs to generate semantic operating/working-mode summaries.
+
+Expected outputs are written under:
+- `src/predictions/Model_A/`
+- `src/predictions/Model_B/`
+- `src/predictions/Model_C/`
+
+
 ## Reproducibility Notes
 
 - Default `Model_A` inputs are resolved from `data/analogicas_nonans.parquet` and `data/digitales.parquet`.
@@ -191,8 +205,26 @@ These signals support both elementary state identification and subsequent behavi
 - `Model_C` is installable and runnable as the `iabm_semantics` package for semantic interpretation of behavioral patterns.
 - The repository now exposes the full three-layer package structure at the root level.
 
+## Correspondence with the paper
+
+The repository mirrors the empirical workflow reported in Section 4 of the paper:
+
+- Section 4.3 (data preparation and state definition) -> `data/`, `src/Model_A/`
+- Section 4.4 (operational-state inference) -> `src/Model_A/`, outputs in `src/predictions/Model_A/`
+- Section 4.5 (behavioral sequence identification) -> `src/Model_B/`, outputs in `src/predictions/Model_B/`
+- Section 4.6 (semantic contextualization / operating and working modes) -> `src/Model_C/`, outputs in `src/predictions/Model_C/`
+- Section 4.7 (abnormality detection and validation summaries) -> outputs generated from `Model_B` and `Model_C`
+
+The README files inside each model directory specify the exact commands and expected outputs.
+
+## Main outputs used in the paper
+
+- State-prediction reports and validation summaries -> `src/predictions/Model_A/`
+- Behavioral sequence reports -> `src/predictions/Model_B/`
+- Semantic mode summaries -> `src/predictions/Model_C/`
+- Final figures and tables reported in the manuscript are derived from these outputs.
+
+
 ## Roadmap
 
-- Add explicit benchmark comparisons for additional ML and DL approaches where required by the paper.
-- Expand automated tests around training windows, class imbalance, and artifact compatibility.
-- Continue refining the alignment between code, experiments, documentation, and manuscript structure.
+This repository accompanies a manuscript currently under review on data-driven behavioral monitoring for industrial assets. Citation details will be added once a persistent reference becomes available.
