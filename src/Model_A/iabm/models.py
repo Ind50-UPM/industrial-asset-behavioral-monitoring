@@ -86,7 +86,9 @@ class FoldLabelEncoderClassifier(BaseEstimator, ClassifierMixin):
             Predictions expressed in the original label space expected by the
             scoring function.
         """
-        encoded_predictions = self.estimator_.predict(X)
+        encoded_predictions = np.asarray(self.estimator_.predict(X))
+        if encoded_predictions.ndim > 1:
+            encoded_predictions = encoded_predictions.argmax(axis=1)
         return self.label_encoder_.inverse_transform(np.asarray(encoded_predictions))
 
     def get_params(self, deep: bool = True) -> Dict[str, Any]:
@@ -147,7 +149,7 @@ def _configure_xgb_estimator(
     unique_classes = np.unique(labels)
     configured.set_params(
         num_class=max(len(unique_classes), 1),
-        objective="multi:softmax",
+        objective="multi:softprob",
     )
     return configured
 
@@ -219,7 +221,7 @@ class StateClassifier:
         if self.model_type == "rf":
             return RandomForestClassifier(**self.params)
         if self.model_type == "xgb":
-            return XGBClassifier(**self.params, objective="multi:softmax")
+            return XGBClassifier(**self.params, objective="multi:softprob")
         raise ValueError(
             self._("Unsupported algorithm: {}.").format(self.model_type)
         )
@@ -252,7 +254,9 @@ class StateClassifier:
         # final estimator configured for the full label set.
         self.estimator = _configure_xgb_estimator(self.estimator, encoded_labels)
         self.estimator.fit(scaled_features, encoded_labels)
-        predictions = self.estimator.predict(scaled_features)
+        predictions = np.asarray(self.estimator.predict(scaled_features))
+        if predictions.ndim > 1:
+            predictions = predictions.argmax(axis=1)
         return float(accuracy_score(encoded_labels, predictions))
 
     def cross_validate(
@@ -320,8 +324,27 @@ class StateClassifier:
             Predicted labels mapped back to the original state identifiers.
         """
         scaled_features = self.scaler.transform(X)
-        encoded_predictions = self.estimator.predict(scaled_features)
+        encoded_predictions = np.asarray(self.estimator.predict(scaled_features))
+        if encoded_predictions.ndim > 1:
+            encoded_predictions = encoded_predictions.argmax(axis=1)
         return self.label_encoder.inverse_transform(encoded_predictions)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """Return class probabilities aligned with the original label space.
+
+        Args:
+            X: Inference feature matrix.
+
+        Returns:
+            A two-dimensional array whose columns follow
+            ``self.label_encoder.classes_``.
+        """
+        scaled_features = self.scaler.transform(X)
+        if not hasattr(self.estimator, "predict_proba"):
+            raise AttributeError(
+                self._("The selected model does not expose probability estimates.")
+            )
+        return np.asarray(self.estimator.predict_proba(scaled_features), dtype=float)
 
     def save(self, file_path: str) -> None:
         """Persist the full inference artifact required for later reuse.

@@ -15,8 +15,8 @@
                 "--data-dig", "${workspaceFolder}/data/digitales.parquet",
                 "--start", "2022-01-18 00:00:00",
                 "--end", "2022-02-18 00:00:00",
-                "--model-out", "${workspaceFolder}/src/models/Modela_A/analogicas_nonans.parquet_RF.joblib",
-                "--pred-out", "${workspaceFolder}/src/predictions/Modela_A",
+                "--model-out", "${workspaceFolder}/src/models/Model_A/analogicas_nonans.parquet_RF.joblib",
+                "--pred-out", "${workspaceFolder}/src/predictions/Model_A",
                 "--lang", "es"
             ],
             "env": {
@@ -37,8 +37,8 @@
                 "--data-dig", "${workspaceFolder}/data/digitales.parquet",
                 "--start", "2022-01-18 00:00:00",
                 "--end", "2022-02-18 00:00:00",
-                "--model-out", "${workspaceFolder}/src/models/Modela_A/analogicas_nonans.parquet_XGB.joblib",
-                "--pred-out", "${workspaceFolder}/src/predictions/Modela_A",
+                "--model-out", "${workspaceFolder}/src/models/Model_A/analogicas_nonans.parquet_XGB.joblib",
+                "--pred-out", "${workspaceFolder}/src/predictions/Model_A",
                 "--lang", "es"
             ],
             "env": {
@@ -58,8 +58,8 @@
                 "--data-ana", "${workspaceFolder}/data/analogicas_nonans.parquet",
                 "--start", "2022-02-21 00:00:00",
                 "--end", "2022-02-22 00:00:00",
-                "--model-out", "${workspaceFolder}/src/models/Modela_A/analogicas_nonans.parquet_RF.joblib",
-                "--pred-out", "${workspaceFolder}/src/predictions/Modela_A",
+                "--model-out", "${workspaceFolder}/src/models/Model_A/analogicas_nonans.parquet_RF.joblib",
+                "--pred-out", "${workspaceFolder}/src/predictions/Model_A",
                 "--lang", "es"
             ],
             "env": {
@@ -79,8 +79,31 @@
                 "--data-ana", "${workspaceFolder}/data/analogicas_nonans.parquet",
                 "--start", "2022-02-21 00:00:00",
                 "--end", "2022-02-22 00:00:00",
-                "--model-out", "${workspaceFolder}/src/models/Modela_A/analogicas_nonans.parquet_XGB.joblib",
-                "--pred-out", "${workspaceFolder}/src/predictions/Modela_A",
+                "--model-out", "${workspaceFolder}/src/models/Model_A/analogicas_nonans.parquet_XGB.joblib",
+                "--pred-out", "${workspaceFolder}/src/predictions/Model_A",
+                "--lang", "es"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src/Model_A"
+            }
+        },
+        {
+            "name": "Model_A: Evaluate RF vs XGBoost",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "iabm.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src/Model_A",
+            "args": [
+                "--mode", "evaluate",
+                "--data-ana", "${workspaceFolder}/data/analogicas_nonans.parquet",
+                "--data-dig", "${workspaceFolder}/data/digitales.parquet",
+                "--start", "2022-02-21 00:00:00",
+                "--end", "2022-02-22 00:00:00",
+                "--model-paths",
+                "${workspaceFolder}/src/models/Model_A/analogicas_nonans.parquet_RF.joblib",
+                "${workspaceFolder}/src/models/Model_A/analogicas_nonans.parquet_XGB.joblib",
+                "--pred-out", "${workspaceFolder}/src/predictions/Model_A",
                 "--lang", "es"
             ],
             "env": {
@@ -95,7 +118,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/src/Model_B",
             "args": [
-                "--input", "${workspaceFolder}/src/predictions/Modela_A/predictions_analogicas_nonans.parquet_RF.xlsx",
+                "--input", "${workspaceFolder}/src/predictions/Model_A/predictions_analogicas_nonans.parquet_RF.xlsx",
                 "--output-dir", "${workspaceFolder}/src/predictions/Model_B",
                 "--lang", "es",
                 "--smooth-short-runs",
@@ -114,8 +137,8 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/src/Model_B",
             "args": [
-                "--input", "${workspaceFolder}/src/predictions/Modela_A/predictions_analogicas_nonans.parquet_RF.xlsx",
-                "--nominal-input", "${workspaceFolder}/src/predictions/Modela_A/predictions_analogicas_nonans.parquet_XGB.xlsx",
+                "--input", "${workspaceFolder}/src/predictions/Model_A/predictions_analogicas_nonans.parquet_RF.xlsx",
+                "--nominal-input", "${workspaceFolder}/src/predictions/Model_A/predictions_analogicas_nonans.parquet_XGB.xlsx",
                 "--output-dir", "${workspaceFolder}/src/predictions/Model_B",
                 "--lang", "es",
                 "--smooth-short-runs",

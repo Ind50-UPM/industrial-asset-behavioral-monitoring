@@ -81,3 +81,77 @@ def test_cli_train_and_predict_workflow(
     prediction_frame = pd.read_excel(prediction_files[0])
     assert "Predicted_State" in prediction_frame.columns
     assert not prediction_frame.empty
+
+
+def test_cli_evaluate_workflow(
+    synthetic_datasets: dict[str, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The CLI should compare multiple saved models in a single evaluation run."""
+    model_paths: list[Path] = []
+    report_dir = tmp_path / "reports"
+
+    for algorithm in ("rf", "xgb"):
+        model_path = tmp_path / f"{algorithm}_model.joblib"
+        model_paths.append(model_path)
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "industrial-id",
+                "--mode",
+                "train",
+                "--algo",
+                algorithm,
+                "--data-ana",
+                str(synthetic_datasets["analog_path"]),
+                "--data-dig",
+                str(synthetic_datasets["digital_path"]),
+                "--model-out",
+                str(model_path),
+                "--pred-out",
+                str(report_dir),
+                "--start",
+                synthetic_datasets["start"],
+                "--end",
+                synthetic_datasets["train_end"],
+                "--cv-splits",
+                "3",
+            ],
+        )
+        cli_main.main()
+
+    evaluation_dir = tmp_path / "evaluation"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "industrial-id",
+            "--mode",
+            "evaluate",
+            "--data-ana",
+            str(synthetic_datasets["analog_path"]),
+            "--data-dig",
+            str(synthetic_datasets["digital_path"]),
+            "--pred-out",
+            str(evaluation_dir),
+            "--model-paths",
+            *(str(model_path) for model_path in model_paths),
+            "--start",
+            synthetic_datasets["start"],
+            "--end",
+            synthetic_datasets["predict_end"],
+        ],
+    )
+    cli_main.main()
+
+    evaluation_files = list(evaluation_dir.glob("evaluation_*.xlsx"))
+    assert len(evaluation_files) == 1
+
+    prediction_frame = pd.read_excel(evaluation_files[0], sheet_name="predictions")
+    assert "Real_Class" in prediction_frame.columns
+    assert "RF_Prediction" in prediction_frame.columns
+    assert "XGB_Prediction" in prediction_frame.columns
+    assert not prediction_frame.empty
+
+    roc_files = list(evaluation_dir.glob("roc_*.png"))
+    assert len(roc_files) == 2

@@ -34,6 +34,16 @@ class InferenceDataset:
     source_frame: pd.DataFrame
 
 
+@dataclass(frozen=True)
+class EvaluationDataset:
+    """Bundle features, labels, and alignment data for quality assessment."""
+
+    features: pd.DataFrame
+    labels: pd.Series | None
+    active_mask: pd.Series
+    source_frame: pd.DataFrame
+
+
 class IndustrialDataProcessor:
     """Prepare industrial analog and digital signals for Model_A workflows.
 
@@ -134,6 +144,31 @@ class IndustrialDataProcessor:
             features=features,
             active_mask=active_mask,
             source_frame=analog_window,
+        )
+
+    def prepare_evaluation_data(self, start: str, end: str) -> EvaluationDataset:
+        """Return aligned features and optional labels for model evaluation.
+
+        Args:
+            start: Inclusive lower timestamp bound.
+            end: Inclusive upper timestamp bound.
+
+        Returns:
+            An :class:`EvaluationDataset` containing the active feature matrix,
+            optional real labels aligned to the full analog window, the activity
+            mask, and the imputed source analog frame.
+        """
+        inference_dataset = self.prepare_inference_data(start, end)
+        labels: pd.Series | None = None
+        if self.digital_df is not None:
+            labeled_frame = self._attach_labels(inference_dataset.source_frame)
+            labels = labeled_frame["estado"].astype(np.int32)
+
+        return EvaluationDataset(
+            features=inference_dataset.features,
+            labels=labels,
+            active_mask=inference_dataset.active_mask,
+            source_frame=inference_dataset.source_frame,
         )
 
     def _get_analog_window(self, start: str, end: str) -> pd.DataFrame:
