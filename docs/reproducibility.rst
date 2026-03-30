@@ -1,5 +1,5 @@
-Overview
-========
+Reproducibility
+===============
 
 This repository implements a layered workflow for industrial asset behavioral monitoring based on operational-state inference, behavioral sequence analysis, and semantic contextualization. It accompanies the research work on data-driven identification of industrial asset operating modes for predictive maintenance in IIoT-enabled industrial environments.
 
@@ -52,8 +52,6 @@ Where to Start
 
 For most users, the recommended reading order is:
 
-- :doc:`overview`
-- :doc:`reproducibility`
 - :doc:`model_a`
 - :doc:`model_b`
 - :doc:`model_c`
