@@ -34,6 +34,9 @@ jobs:
         working-directory: src/Model_C
         run: poetry install
 
+      - name: Install furo package
+        run: python -m pip install furo
+
       - name: Install documentation dependencies
         run: python -m pip install -r docs/requirements.txt
 
