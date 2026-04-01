@@ -27,38 +27,216 @@ Together, the three packages define a coherent layered workflow:
 
 ```text
 industrial-asset-behavioral-monitoring/
-├── data/
-│   ├── analogicas_nonans.parquet
-│   └── digitales.parquet
-├── docs/
-│   ├── model_a.rst
-│   ├── model_b.rst
-│   ├── model_c.rst
-│   └── user_validation_checklist.md
-├── src/
-│   ├── Model_A/
-│   │   ├── iabm/
-│   │   ├── locales/
-│   │   ├── pyproject.toml
-│   │   └── README.md
-│   ├── Model_B/
-│   │   ├── iabm_behavior/
-│   │   ├── locales/
-│   │   ├── pyproject.toml
-│   │   └── README.md
-│   ├── Model_C/
-│   │   ├── iabm_semantics/
-│   │   ├── locales/
-│   │   ├── pyproject.toml
-│   │   └── README.md
-│   ├── models/
-│   │   └── Model_A/
-│   ├── predictions/
-│   │   ├── Model_A/
-│   │   ├── Model_B/
-│   │   └── Model_C/
-│   └── README.md
-└── README.md
+├── CHANGELOG.md
+├── LICENSE
+├── README.md
+├── data
+│   ├── README.md
+│   ├── analogicas_nonans.parquet
+│   └── digitales.parquet
+├── docs
+│   ├── Makefile
+│   ├── README.md
+│   ├── _build
+│   │   ├── doctrees
+│   │   │   ├── environment.pickle
+│   │   │   ├── index.doctree
+│   │   │   ├── model_a.doctree
+│   │   │   ├── model_b.doctree
+│   │   │   ├── model_c.doctree
+│   │   │   ├── overview.doctree
+│   │   │   ├── reproducibility.doctree
+│   │   │   └── semantic_schema.doctree
+│   │   └── html
+│   │       ├── _modules
+│   │       │   ├── iabm
+│   │       │   │   ├── data_processor.html
+│   │       │   │   ├── main.html
+│   │       │   │   ├── models.html
+│   │       │   │   └── utils.html
+│   │       │   ├── iabm_behavior
+│   │       │   │   ├── main.html
+│   │       │   │   ├── sequences.html
+│   │       │   │   └── utils.html
+│   │       │   ├── iabm_semantics
+│   │       │   │   ├── main.html
+│   │       │   │   ├── semantics.html
+│   │       │   │   └── utils.html
+│   │       │   └── index.html
+│   │       ├── _sources
+│   │       │   ├── index.rst.txt
+│   │       │   ├── model_a.rst.txt
+│   │       │   ├── model_b.rst.txt
+│   │       │   ├── model_c.rst.txt
+│   │       │   ├── overview.rst.txt
+│   │       │   ├── reproducibility.rst.txt
+│   │       │   └── semantic_schema.rst.txt
+│   │       ├── _static
+│   │       │   ├── basic.css
+│   │       │   ├── custom.css
+│   │       │   ├── debug.css
+│   │       │   ├── doctools.js
+│   │       │   ├── documentation_options.js
+│   │       │   ├── file.png
+│   │       │   ├── language_data.js
+│   │       │   ├── minus.png
+│   │       │   ├── plus.png
+│   │       │   ├── pygments.css
+│   │       │   ├── scripts
+│   │       │   │   ├── furo-extensions.js
+│   │       │   │   ├── furo.js
+│   │       │   │   ├── furo.js.LICENSE.txt
+│   │       │   │   └── furo.js.map
+│   │       │   ├── searchtools.js
+│   │       │   ├── skeleton.css
+│   │       │   ├── sphinx_highlight.js
+│   │       │   └── styles
+│   │       │       ├── furo-extensions.css
+│   │       │       ├── furo-extensions.css.map
+│   │       │       ├── furo.css
+│   │       │       └── furo.css.map
+│   │       ├── genindex.html
+│   │       ├── index.html
+│   │       ├── model_a.html
+│   │       ├── model_b.html
+│   │       ├── model_c.html
+│   │       ├── objects.inv
+│   │       ├── overview.html
+│   │       ├── py-modindex.html
+│   │       ├── reproducibility.html
+│   │       ├── search.html
+│   │       ├── searchindex.js
+│   │       └── semantic_schema.html
+│   ├── _static
+│   │   └── custom.css
+│   ├── conf.py
+│   ├── index.rst
+│   ├── make.bat
+│   ├── model_a.rst
+│   ├── model_b.rst
+│   ├── model_c.rst
+│   ├── overview.rst
+│   ├── reproducibility.rst
+│   ├── requirements.txt
+│   ├── semantic_schema.rst
+│   └── user_validation_checklist.md
+├── ontology
+│   ├── README.md
+│   ├── examples
+│   │   └── heel_washer.ttl
+│   ├── iabm.ttl
+│   └── queries
+│       └── example_queries.rq
+└── src
+    ├── Model_A
+    │   ├── README.md
+    │   ├── iabm
+    │   │   ├── __init__.py
+    │   │   ├── __pycache__
+    │   │   │   ├── __init__.cpython-312.pyc
+    │   │   │   ├── data_processor.cpython-312.pyc
+    │   │   │   ├── main.cpython-312.pyc
+    │   │   │   ├── models.cpython-312.pyc
+    │   │   │   └── utils.cpython-312.pyc
+    │   │   ├── data_processor.py
+    │   │   ├── main.py
+    │   │   ├── models.py
+    │   │   └── utils.py
+    │   ├── locales
+    │   │   ├── en
+    │   │   │   └── LC_MESSAGES
+    │   │   │       └── messages.po
+    │   │   └── es
+    │   │       └── LC_MESSAGES
+    │   │           └── messages.po
+    │   ├── models
+    │   ├── poetry.lock
+    │   ├── pyproject.toml
+    │   ├── pytest.ini
+    │   └── tests
+    │       ├── conftest.py
+    │       ├── test_cli.py
+    │       └── test_models.py
+    ├── Model_B
+    │   ├── README.md
+    │   ├── iabm_behavior
+    │   │   ├── __init__.py
+    │   │   ├── __pycache__
+    │   │   │   ├── __init__.cpython-312.pyc
+    │   │   │   ├── main.cpython-312.pyc
+    │   │   │   ├── sequences.cpython-312.pyc
+    │   │   │   └── utils.cpython-312.pyc
+    │   │   ├── main.py
+    │   │   ├── sequences.py
+    │   │   └── utils.py
+    │   ├── locales
+    │   │   ├── en
+    │   │   │   └── LC_MESSAGES
+    │   │   │       └── messages.po
+    │   │   └── es
+    │   │       └── LC_MESSAGES
+    │   │           └── messages.po
+    │   ├── pyproject.toml
+    │   ├── pytest.ini
+    │   └── tests
+    │       ├── conftest.py
+    │       ├── test_cli.py
+    │       └── test_sequences.py
+    ├── Model_C
+    │   ├── README.md
+    │   ├── iabm_semantics
+    │   │   ├── __init__.py
+    │   │   ├── __pycache__
+    │   │   │   ├── __init__.cpython-312.pyc
+    │   │   │   ├── main.cpython-312.pyc
+    │   │   │   ├── semantics.cpython-312.pyc
+    │   │   │   └── utils.cpython-312.pyc
+    │   │   ├── main.py
+    │   │   ├── semantics.py
+    │   │   └── utils.py
+    │   ├── locales
+    │   │   ├── en
+    │   │   │   └── LC_MESSAGES
+    │   │   │       └── messages.po
+    │   │   └── es
+    │   │       └── LC_MESSAGES
+    │   │           └── messages.po
+    │   ├── pyproject.toml
+    │   ├── pytest.ini
+    │   └── tests
+    │       ├── conftest.py
+    │       ├── test_cli.py
+    │       └── test_semantics.py
+    ├── README.md
+    ├── models
+    │   └── Model_A
+    │       └── analogicas_nonans.parquet_XGB.joblib
+    └── predictions
+        ├── Model_A
+        │   ├── analogicas_nonans.parquet_RF_metrics_2022-01-18.xlsx
+        │   ├── analogicas_nonans.parquet_RF_metrics_rf_2022-01-18.xlsx
+        │   ├── analogicas_nonans.parquet_XGB_metrics_2022-01-18.xlsx
+        │   ├── analogicas_nonans.parquet_XGB_metrics_xgb_2022-01-18.xlsx
+        │   ├── cm_RF_Prediction.pdf
+        │   ├── cm_RF_Prediction.png
+        │   ├── cm_XGB_Prediction.pdf
+        │   ├── cm_XGB_Prediction.png
+        │   ├── evaluation_analogicas_nonans_2022-02-21_00-00-00_2022-02-22_00-00-00.xlsx
+        │   ├── predictions_analogicas_nonans.parquet_RF.xlsx
+        │   ├── predictions_analogicas_nonans.parquet_XGB.xlsx
+        │   ├── roc_RF_Prediction.pdf
+        │   ├── roc_RF_Prediction.png
+        │   ├── roc_XGB_Prediction.pdf
+        │   └── roc_XGB_Prediction.png
+        ├── Model_B
+        │   ├── active_sequences.xlsx
+        │   ├── sequence_comparison.xlsx
+        │   ├── sequence_words.xlsx
+        │   └── state_runs.xlsx
+        └── Model_C
+            ├── semantic_assignments.xlsx
+            └── semantic_mode_summary.xlsx
+
 ```
 
 ## Modeling Layers
