@@ -17,6 +17,7 @@ Quick links
 
 - :doc:`overview`
 - :doc:`reproducibility`
+- :doc:`semantic_schema`
 - :doc:`model_a`
 - :doc:`model_b`
 - :doc:`model_c`
@@ -27,6 +28,7 @@ Quick links
 
    overview
    reproducibility
+   semantic_schema
    model_a
    model_b
    model_c
