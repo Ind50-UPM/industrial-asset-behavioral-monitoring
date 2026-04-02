@@ -1,414 +1,223 @@
 # Industrial Asset Behavioral Monitoring
 
-[![CI](https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring/actions/workflows/ci.yml)
+Implementation, datasets, semantic artifacts, and documentation for a data-driven framework for industrial asset monitoring based on operational-state inference, hierarchical behavioral modeling, semantic contextualization, and abnormality detection using Industrial Internet of Things (IIoT) data.
 
-Implementation, datasets, and experimental workflows for a data-driven framework for industrial asset monitoring based on operational-state identification and hierarchical behavioral modeling with Industrial Internet of Things (IIoT) data.
+This repository accompanies a research workflow on **data-driven identification of industrial asset operating modes for predictive maintenance in IoT-enabled industrial environments**. It is intended both as a **reproducibility resource** and as a **reusable software scaffold** for behavioral monitoring of weakly instrumented industrial assets.
 
-This repository accompanies the research work:
-
-> **"A Data-Driven Behavioral Monitoring Framework for Industrial Assets"**  
-> submitted to *Computers in Industry*.
+---
 
 ## Overview
 
-The repository is organized around the progressive modeling layers described in the paper:
+The repository is organized around three progressive modeling layers that mirror the analytical workflow described in the paper:
 
-- `Model_A`: elementary operating-state identification from analog and digital signals
-- `Model_B`: temporal and behavioral modeling on top of state sequences
-- `Model_C`: higher-level semantic, generalization, or deployment-oriented extensions
+- **Model_A** (`iabm`)  
+  Supervised identification of elementary operational states from synchronized analog and digital industrial signals.
 
-Together, the three packages define a coherent layered workflow:
+- **Model_B** (`iabm_behavior`)  
+  Extraction of contiguous state runs, behavioral sequences, nominal sequence references, and anomaly-oriented comparison metrics.
 
-1. `Model_A` learns operating states from synchronized analog and digital signals.
-2. `Model_B` transforms predicted states into runs, behavioral sequences, and nominal-comparison reports.
-3. `Model_C` interprets behavioral sequences as semantic operating and working modes.
+- **Model_C** (`iabm_semantics`)  
+  Ontology-aligned semantic contextualization of behavioral sequences into operating modes, working modes, and higher-level contextualized summaries.
 
-## Repository Structure
+Together, these three packages implement a coherent layered workflow:
+
+1. **Model_A** transforms synchronized industrial observations into operational-state predictions.
+2. **Model_B** organizes those predicted states into runs, behavioral sequences, and nominal-comparison reports.
+3. **Model_C** interprets behavioral sequences through a lightweight contextualization layer that links structural anchors, functional roles, and monitored evidence.
+
+---
+
+## Relation to the paper
+
+The repository mirrors the main methodological stages of the paper:
+
+- **Operational-state inference** -> `Model_A`
+- **Behavioral sequence construction and anomaly-oriented comparison** -> `Model_B`
+- **Semantic contextualization and operating/working mode interpretation** -> `Model_C`
+- **Ontology-aligned contextualization schema** -> `ontology/`
+- **User and developer documentation** -> `docs/`
+
+In this sense, the repository is not only a software release, but also a reproducibility resource for the empirical workflow described in the manuscript.
+
+---
+
+## Repository structure
 
 ```text
 industrial-asset-behavioral-monitoring/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
-├── data
-│   ├── README.md
-│   ├── analogicas_nonans.parquet
-│   └── digitales.parquet
-├── docs
-│   ├── Makefile
-│   ├── README.md
-│   ├── _build
-│   │   ├── doctrees
-│   │   │   ├── environment.pickle
-│   │   │   ├── index.doctree
-│   │   │   ├── model_a.doctree
-│   │   │   ├── model_b.doctree
-│   │   │   ├── model_c.doctree
-│   │   │   ├── overview.doctree
-│   │   │   ├── reproducibility.doctree
-│   │   │   └── semantic_schema.doctree
-│   │   └── html
-│   │       ├── _modules
-│   │       │   ├── iabm
-│   │       │   │   ├── data_processor.html
-│   │       │   │   ├── main.html
-│   │       │   │   ├── models.html
-│   │       │   │   └── utils.html
-│   │       │   ├── iabm_behavior
-│   │       │   │   ├── main.html
-│   │       │   │   ├── sequences.html
-│   │       │   │   └── utils.html
-│   │       │   ├── iabm_semantics
-│   │       │   │   ├── main.html
-│   │       │   │   ├── semantics.html
-│   │       │   │   └── utils.html
-│   │       │   └── index.html
-│   │       ├── _sources
-│   │       │   ├── index.rst.txt
-│   │       │   ├── model_a.rst.txt
-│   │       │   ├── model_b.rst.txt
-│   │       │   ├── model_c.rst.txt
-│   │       │   ├── overview.rst.txt
-│   │       │   ├── reproducibility.rst.txt
-│   │       │   └── semantic_schema.rst.txt
-│   │       ├── _static
-│   │       │   ├── basic.css
-│   │       │   ├── custom.css
-│   │       │   ├── debug.css
-│   │       │   ├── doctools.js
-│   │       │   ├── documentation_options.js
-│   │       │   ├── file.png
-│   │       │   ├── language_data.js
-│   │       │   ├── minus.png
-│   │       │   ├── plus.png
-│   │       │   ├── pygments.css
-│   │       │   ├── scripts
-│   │       │   │   ├── furo-extensions.js
-│   │       │   │   ├── furo.js
-│   │       │   │   ├── furo.js.LICENSE.txt
-│   │       │   │   └── furo.js.map
-│   │       │   ├── searchtools.js
-│   │       │   ├── skeleton.css
-│   │       │   ├── sphinx_highlight.js
-│   │       │   └── styles
-│   │       │       ├── furo-extensions.css
-│   │       │       ├── furo-extensions.css.map
-│   │       │       ├── furo.css
-│   │       │       └── furo.css.map
-│   │       ├── genindex.html
-│   │       ├── index.html
-│   │       ├── model_a.html
-│   │       ├── model_b.html
-│   │       ├── model_c.html
-│   │       ├── objects.inv
-│   │       ├── overview.html
-│   │       ├── py-modindex.html
-│   │       ├── reproducibility.html
-│   │       ├── search.html
-│   │       ├── searchindex.js
-│   │       └── semantic_schema.html
-│   ├── _static
-│   │   └── custom.css
-│   ├── conf.py
-│   ├── index.rst
-│   ├── make.bat
-│   ├── model_a.rst
-│   ├── model_b.rst
-│   ├── model_c.rst
-│   ├── overview.rst
-│   ├── reproducibility.rst
-│   ├── requirements.txt
-│   ├── semantic_schema.rst
-│   └── user_validation_checklist.md
-├── ontology
-│   ├── README.md
-│   ├── examples
-│   │   └── heel_washer.ttl
-│   ├── iabm.ttl
-│   └── queries
-│       └── example_queries.rq
-└── src
-    ├── Model_A
-    │   ├── README.md
-    │   ├── iabm
-    │   │   ├── __init__.py
-    │   │   ├── __pycache__
-    │   │   │   ├── __init__.cpython-312.pyc
-    │   │   │   ├── data_processor.cpython-312.pyc
-    │   │   │   ├── main.cpython-312.pyc
-    │   │   │   ├── models.cpython-312.pyc
-    │   │   │   └── utils.cpython-312.pyc
-    │   │   ├── data_processor.py
-    │   │   ├── main.py
-    │   │   ├── models.py
-    │   │   └── utils.py
-    │   ├── locales
-    │   │   ├── en
-    │   │   │   └── LC_MESSAGES
-    │   │   │       └── messages.po
-    │   │   └── es
-    │   │       └── LC_MESSAGES
-    │   │           └── messages.po
-    │   ├── models
-    │   ├── poetry.lock
-    │   ├── pyproject.toml
-    │   ├── pytest.ini
-    │   └── tests
-    │       ├── conftest.py
-    │       ├── test_cli.py
-    │       └── test_models.py
-    ├── Model_B
-    │   ├── README.md
-    │   ├── iabm_behavior
-    │   │   ├── __init__.py
-    │   │   ├── __pycache__
-    │   │   │   ├── __init__.cpython-312.pyc
-    │   │   │   ├── main.cpython-312.pyc
-    │   │   │   ├── sequences.cpython-312.pyc
-    │   │   │   └── utils.cpython-312.pyc
-    │   │   ├── main.py
-    │   │   ├── sequences.py
-    │   │   └── utils.py
-    │   ├── locales
-    │   │   ├── en
-    │   │   │   └── LC_MESSAGES
-    │   │   │       └── messages.po
-    │   │   └── es
-    │   │       └── LC_MESSAGES
-    │   │           └── messages.po
-    │   ├── pyproject.toml
-    │   ├── pytest.ini
-    │   └── tests
-    │       ├── conftest.py
-    │       ├── test_cli.py
-    │       └── test_sequences.py
-    ├── Model_C
-    │   ├── README.md
-    │   ├── iabm_semantics
-    │   │   ├── __init__.py
-    │   │   ├── __pycache__
-    │   │   │   ├── __init__.cpython-312.pyc
-    │   │   │   ├── main.cpython-312.pyc
-    │   │   │   ├── semantics.cpython-312.pyc
-    │   │   │   └── utils.cpython-312.pyc
-    │   │   ├── main.py
-    │   │   ├── semantics.py
-    │   │   └── utils.py
-    │   ├── locales
-    │   │   ├── en
-    │   │   │   └── LC_MESSAGES
-    │   │   │       └── messages.po
-    │   │   └── es
-    │   │       └── LC_MESSAGES
-    │   │           └── messages.po
-    │   ├── pyproject.toml
-    │   ├── pytest.ini
-    │   └── tests
-    │       ├── conftest.py
-    │       ├── test_cli.py
-    │       └── test_semantics.py
-    ├── README.md
-    ├── models
-    │   └── Model_A
-    │       └── analogicas_nonans.parquet_XGB.joblib
-    └── predictions
-        ├── Model_A
-        │   ├── analogicas_nonans.parquet_RF_metrics_2022-01-18.xlsx
-        │   ├── analogicas_nonans.parquet_RF_metrics_rf_2022-01-18.xlsx
-        │   ├── analogicas_nonans.parquet_XGB_metrics_2022-01-18.xlsx
-        │   ├── analogicas_nonans.parquet_XGB_metrics_xgb_2022-01-18.xlsx
-        │   ├── cm_RF_Prediction.pdf
-        │   ├── cm_RF_Prediction.png
-        │   ├── cm_XGB_Prediction.pdf
-        │   ├── cm_XGB_Prediction.png
-        │   ├── evaluation_analogicas_nonans_2022-02-21_00-00-00_2022-02-22_00-00-00.xlsx
-        │   ├── predictions_analogicas_nonans.parquet_RF.xlsx
-        │   ├── predictions_analogicas_nonans.parquet_XGB.xlsx
-        │   ├── roc_RF_Prediction.pdf
-        │   ├── roc_RF_Prediction.png
-        │   ├── roc_XGB_Prediction.pdf
-        │   └── roc_XGB_Prediction.png
-        ├── Model_B
-        │   ├── active_sequences.xlsx
-        │   ├── sequence_comparison.xlsx
-        │   ├── sequence_words.xlsx
-        │   └── state_runs.xlsx
-        └── Model_C
-            ├── semantic_assignments.xlsx
-            └── semantic_mode_summary.xlsx
-
+├── data/
+│   ├── README.md
+│   ├── analogicas_nonans.parquet
+│   └── digitales.parquet
+├── docs/
+│   ├── README.md
+│   ├── conf.py
+│   ├── index.rst
+│   ├── overview.rst
+│   ├── reproducibility.rst
+│   ├── semantic_schema.rst
+│   ├── model_a.rst
+│   ├── model_b.rst
+│   ├── model_c.rst
+│   ├── requirements.txt
+│   └── _static/
+├── ontology/
+│   ├── README.md
+│   ├── iabm.ttl
+│   ├── examples/
+│   │   └── wheel_washer.ttl
+│   └── queries/
+│       └── example_queries.rq
+└── src/
+    ├── Model_A/
+    │   ├── README.md
+    │   ├── iabm/
+    │   ├── tests/
+    │   └── pyproject.toml
+    ├── Model_B/
+    │   ├── README.md
+    │   ├── iabm_behavior/
+    │   ├── tests/
+    │   └── pyproject.toml
+    └── Model_C/
+        ├── README.md
+        ├── iabm_semantics/
+        ├── tests/
+        └── pyproject.toml
 ```
+Data
 
-## Modeling Layers
+The repository includes the industrial datasets used to support the behavioral monitoring workflow:
 
-### Model_A
+data/analogicas_nonans.parquet
+Preprocessed analog industrial monitoring signals.
+data/digitales.parquet
+Synchronized digital/control-layer signals.
 
-`Model_A` is packaged as `iabm`, short for `Industrial Asset Behavioral Monitoring`.
+These datasets provide the basis for state inference, sequence extraction, and contextualized operational interpretation.
 
-It currently provides:
+Semantic schema
 
-- supervised state identification with Random Forest and XGBoost
-- study-compatible preprocessing and NaN imputation
-- stratified cross-validation
-- model persistence with scaler, label encoder, and feature ordering
-- prediction on new analog data without digital labels at inference time
-- bilingual CLI support in English and Spanish
+The repository includes a lightweight ontology-aligned contextualization schema under ontology/.
 
-Package-specific documentation is available in [`src/Model_A/README.md`](src/Model_A/README.md).
+Contents
+ontology/iabm.ttl
+Core schema defining the main classes and relations used to contextualize observations, operational states, behavioral sequences, operating modes, working modes, and abnormality evidence.
+ontology/examples/wheel_washer.ttl
+Minimal instance-level example derived from the wheel-washing industrial use case.
+ontology/queries/example_queries.rq
+Illustrative SPARQL queries showing how semantic entities can be explored and retrieved.
+Scope
 
-### Model_B
+The semantic layer should be understood as a lightweight contextualization scheme, not as a complete ontology-driven reasoning system. Its role is to make the semantic structure explicit, inspectable, and reusable while remaining consistent with the data-driven analytical workflow implemented in Model_A, Model_B, and Model_C.
 
-`Model_B` is packaged as `iabm_behavior` and operates on state timelines produced by `Model_A` or equivalent digital traces.
+Installation
 
-It currently provides:
+Each modeling layer is maintained as its own Poetry package. Install the package that matches the layer you want to run.
 
-- loading of state timelines from Excel, CSV, or Parquet
-- smoothing of short transient runs before behavioral aggregation
-- extraction of contiguous state runs
-- extraction of active multi-state behavioral sequences
-- sequence-word summaries for repeated patterns and durations
-- comparison against nominal reference sequences with anomaly-oriented scoring
-- bilingual CLI support in English and Spanish
+Clone the repository:
 
-Package-specific documentation is available in [`src/Model_B/README.md`](src/Model_B/README.md).
-
-### Model_C
-
-`Model_C` is packaged as `iabm_semantics` and builds on `Model_B` outputs to assign higher-level semantic meaning to behavioral patterns.
-
-It currently provides:
-
-- loading of active-sequence reports generated by `Model_B`
-- optional use of anomaly-comparison reports for semantic enrichment
-- decoding of sequence words into industrial components
-- heuristic assignment of operating modes and working modes
-- semantic status enrichment and aggregate summaries
-- bilingual CLI support in English and Spanish
-
-Package-specific documentation is available in [`src/Model_C/README.md`](src/Model_C/README.md).
-
-## Installation
-
-Each model is maintained as its own Poetry package. Install the package that matches the layer you want to run:
-
-```bash
 git clone https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring.git
 cd industrial-asset-behavioral-monitoring
-```
-
-For `Model_A`:
-
-```bash
+Model_A
 cd src/Model_A
 poetry install
 poetry run industrial-id --help
 python -m iabm.main --help
-```
-
-For `Model_B`:
-
-```bash
+Model_B
 cd src/Model_B
 poetry install
-poetry run industrial-behavior --help
+poetry run iabm-behavior --help
 python -m iabm_behavior.main --help
-```
-
-For `Model_C`:
-
-```bash
+Model_C
 cd src/Model_C
 poetry install
-poetry run industrial-semantics --help
+poetry run iabm-semantics --help
 python -m iabm_semantics.main --help
+Minimal workflow
+
+A minimal end-to-end workflow is:
+
+Run Model_A to train or load the state-identification model and generate state predictions.
+Run Model_B on the resulting state timeline to obtain contiguous runs, active sequences, and optional anomaly-comparison reports.
+Run Model_C on the sequence outputs to generate contextualized operating-mode and working-mode summaries.
+
+This layered structure allows the repository to be used incrementally, depending on whether the user is interested in state inference only, behavioral monitoring, or contextualized semantic interpretation.
+
+Model summaries
+Model_A
+
+Model_A is packaged as iabm and focuses on:
+
+loading synchronized analog and digital industrial signals,
+preprocessing and preparation of state-identification datasets,
+training and evaluating supervised models for operational-state inference,
+generating state predictions and validation outputs,
+supporting practical deployment under partial instrumentation.
+Model_B
+
+Model_B is packaged as iabm_behavior and focuses on:
+
+loading state timelines from Excel, CSV, or Parquet,
+smoothing short transient runs before behavioral aggregation,
+extracting contiguous state runs,
+identifying active multi-state behavioral sequences,
+generating sequence summaries and nominal sequence references,
+comparing observed sequences against nominal patterns with anomaly-oriented scoring.
+
+### Model_C
+
+Model_C is packaged as iabm_semantics and focuses on:
+
+* loading active-sequence reports generated by Model_B,
+* optionally incorporating anomaly-comparison outputs,
+* decoding behavioral sequences into structural and functional interpretations,
+* assigning contextualized operating modes and working modes,
+* producing aggregate semantic summaries consistent with the ontology-aligned contextualization schema.
+
+## Documentation
+
+Project documentation is available in the docs/ folder and can also be published as a Sphinx site.
+
+The documentation currently includes:
+
+* repository overview,
+* reproducibility guidance,
+* semantic schema description,
+* package-oriented pages for Model_A, Model_B, and Model_C.
+
+If Sphinx is installed, documentation can be built locally from docs/ with:
+
+````bash
+make html
 ```
 
-## Typical Workflow
+If your GitHub Pages deployment is active, you may also include the public documentation URL here.
 
-The repository supports an end-to-end layered analysis workflow:
+## Reproducibility
 
-1. Train or load `Model_A` to generate state predictions from industrial signals.
-2. Feed the resulting timeline into `Model_B` to obtain state runs, active sequences, and optional anomaly comparisons.
-3. Feed `Model_B` sequence outputs into `Model_C` to produce semantic operating-mode interpretations.
+The repository is intended to support reproducibility of the main analytical workflow reported in the paper.
 
-In practice, generated artifacts are typically written under:
+In particular, it provides:
 
-- `src/models/Model_A/` for trained `Model_A` artifacts
-- `src/predictions/Model_A/` for `Model_A` reports and predictions
-- `src/predictions/Model_B/` for behavioral reports
-- `src/predictions/Model_C/` for semantic interpretation reports
+* the original industrial datasets,
+* the refactored software layers used in the study,
+* semantic artifacts for contextual interpretation,
+* and technical documentation describing the relation between code, data, and analytical stages.
 
-## Data
+## Citation
 
-The datasets included in `data/` represent industrial monitoring signals from a real deployment. Typical variables include:
+Citation details should be added once a stable public reference is available.
 
-- electrical measurements such as voltage, current, power, and power factor
-- digital control or status signals
-- complementary process-related variables
+For the time being, the repository should be cited as the software and data companion to the corresponding research work on industrial asset behavioral monitoring and operating-mode identification.
 
-These signals support both elementary state identification and subsequent behavioral and semantic aggregation.
+## License
 
-## Minimal reproduction path
+This repository is distributed under the terms of the AGPL-3.0 license. See LICENSE for details.
 
-To reproduce the main empirical workflow reported in the paper:
+## Contact
 
-1. Run `Model_A` to train or load the state-identification model and generate state predictions.
-2. Run `Model_B` on the resulting state timeline to extract runs, sequences, and comparison reports.
-3. Run `Model_C` on the sequence outputs to generate semantic operating/working-mode summaries.
-
-Expected outputs are written under:
-- `src/predictions/Model_A/`
-- `src/predictions/Model_B/`
-- `src/predictions/Model_C/`
-
-
-## Reproducibility Notes
-
-- Default `Model_A` inputs are resolved from `data/analogicas_nonans.parquet` and `data/digitales.parquet`.
-- Default trained artifacts are written under `src/models/Model_A/`.
-- Default validation reports and prediction exports are written under `src/predictions/Model_A/`.
-- `Model_B` consumes state timelines, including `Model_A` prediction exports, and writes reports under `src/predictions/Model_B/`.
-- `Model_C` consumes `Model_B` active-sequence and optional comparison exports and writes reports under `src/predictions/Model_C/`.
-- The `iabm`, `iabm_behavior`, and `iabm_semantics` packages use English docstrings and translatable CLI messages.
-
-## Validation Resources
-
-- User-facing validation checklist: [`docs/user_validation_checklist.md`](docs/user_validation_checklist.md)
-- Sphinx documentation scaffold: [`docs/README.md`](docs/README.md)
-
-## Current Status
-
-- `Model_A` is installable and runnable as the `iabm` package for supervised operating-state identification.
-- `Model_B` is installable and runnable as the `iabm_behavior` package for behavioral sequence extraction and nominal comparison.
-- `Model_C` is installable and runnable as the `iabm_semantics` package for semantic interpretation of behavioral patterns.
-- The repository now exposes the full three-layer package structure at the root level.
-
-## Online documentation
-
-Project documentation is available at:
-https://ind50-upm.github.io/industrial-asset-behavioral-monitoring/
-
-
-## Correspondence with the paper
-
-The repository mirrors the empirical workflow reported in Section 4 of the paper:
-
-- Section 4.3 (data preparation and state definition) -> `data/`, `src/Model_A/`
-- Section 4.4 (operational-state inference) -> `src/Model_A/`, outputs in `src/predictions/Model_A/`
-- Section 4.5 (behavioral sequence identification) -> `src/Model_B/`, outputs in `src/predictions/Model_B/`
-- Section 4.6 (semantic contextualization / operating and working modes) -> `src/Model_C/`, outputs in `src/predictions/Model_C/`
-- Section 4.7 (abnormality detection and validation summaries) -> outputs generated from `Model_B` and `Model_C`
-
-The README files inside each model directory specify the exact commands and expected outputs.
-
-## Main outputs used in the paper
-
-- State-prediction reports and validation summaries -> `src/predictions/Model_A/`
-- Behavioral sequence reports -> `src/predictions/Model_B/`
-- Semantic mode summaries -> `src/predictions/Model_C/`
-- Final figures and tables reported in the manuscript are derived from these outputs.
-
-
-## Roadmap
-
-This repository accompanies a manuscript currently under review on data-driven behavioral monitoring for industrial assets. Citation details will be added once a persistent reference becomes available.
+For scientific or technical questions related to the repository, please use the GitHub issue tracker or contact the corresponding author through the institutional details provided in the associated manuscript.
