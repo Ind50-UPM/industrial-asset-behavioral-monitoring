@@ -213,11 +213,11 @@ The documentation currently includes:
 
 If Sphinx is installed, documentation can be built locally from docs/ with:
 
-````bash
+```bash
 make html
 ```
 
-If your GitHub Pages deployment is active, you may also include the public documentation URL here.
+The documentation for this development is publicly available at https://ind50-upm.github.io/industrial-asset-behavioral-monitoring/
 
 ## Reproducibility
 
@@ -232,8 +232,7 @@ In particular, it provides:
 
 ## Citation
 
-Citation details should be added once a stable public reference is available.
-
+Citation details will be added once a stable public reference is available.
 For the time being, the repository should be cited as the software and data companion to the corresponding research work on industrial asset behavioral monitoring and operating-mode identification.
 
 ## License
