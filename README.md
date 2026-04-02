@@ -88,85 +88,104 @@ industrial-asset-behavioral-monitoring/
         ├── tests/
         └── pyproject.toml
 ```
-Data
+
+## Data
 
 The repository includes the industrial datasets used to support the behavioral monitoring workflow:
 
-data/analogicas_nonans.parquet
-Preprocessed analog industrial monitoring signals.
-data/digitales.parquet
-Synchronized digital/control-layer signals.
+* `data/analogicas_nonans.parquet`
+  Preprocessed analog industrial monitoring signals.
+* `data/digitales.parquet`
+  Synchronized digital/control-layer signals.
 
 These datasets provide the basis for state inference, sequence extraction, and contextualized operational interpretation.
 
-Semantic schema
+## Semantic schema
 
-The repository includes a lightweight ontology-aligned contextualization schema under ontology/.
+The repository includes a lightweight ontology-aligned contextualization schema under `ontology/`.
 
-Contents
-ontology/iabm.ttl
-Core schema defining the main classes and relations used to contextualize observations, operational states, behavioral sequences, operating modes, working modes, and abnormality evidence.
-ontology/examples/wheel_washer.ttl
-Minimal instance-level example derived from the wheel-washing industrial use case.
-ontology/queries/example_queries.rq
-Illustrative SPARQL queries showing how semantic entities can be explored and retrieved.
-Scope
+### Contents
+* `ontology/iabm.ttl`
+   Core schema defining the main classes and relations used to contextualize observations, operational states, behavioral sequences, operating modes, working modes, and abnormality evidence.
+* `ontology/examples/wheel_washer.ttl`
+   Minimal instance-level example derived from the wheel-washing industrial use case.
+* `ontology/queries/example_queries.rq`
+   Illustrative SPARQL queries showing how semantic entities can be explored and retrieved.
 
-The semantic layer should be understood as a lightweight contextualization scheme, not as a complete ontology-driven reasoning system. Its role is to make the semantic structure explicit, inspectable, and reusable while remaining consistent with the data-driven analytical workflow implemented in Model_A, Model_B, and Model_C.
+### Scope
 
-Installation
+The semantic layer should be understood as a **lightweight contextualization scheme**, not as a complete ontology-driven reasoning system. Its role is to make the semantic structure explicit, inspectable, and reusable while remaining consistent with the data-driven analytical workflow implemented in `Model_A`, `Model_B`, and `Model_C`.
+
+## Installation
 
 Each modeling layer is maintained as its own Poetry package. Install the package that matches the layer you want to run.
 
 Clone the repository:
 
+```bash
 git clone https://github.com/Ind50-UPM/industrial-asset-behavioral-monitoring.git
 cd industrial-asset-behavioral-monitoring
-Model_A
+```
+
+### Model_A
+
+```bash
 cd src/Model_A
 poetry install
 poetry run industrial-id --help
 python -m iabm.main --help
-Model_B
+```
+
+### Model_B
+
+```bash
 cd src/Model_B
 poetry install
 poetry run iabm-behavior --help
 python -m iabm_behavior.main --help
-Model_C
+```
+
+### Model_C
+
+```bash
 cd src/Model_C
 poetry install
 poetry run iabm-semantics --help
 python -m iabm_semantics.main --help
-Minimal workflow
+```
+
+## Minimal workflow
 
 A minimal end-to-end workflow is:
 
-Run Model_A to train or load the state-identification model and generate state predictions.
-Run Model_B on the resulting state timeline to obtain contiguous runs, active sequences, and optional anomaly-comparison reports.
-Run Model_C on the sequence outputs to generate contextualized operating-mode and working-mode summaries.
+1. Run Model_A to train or load the state-identification model and generate state predictions.
+2. Run Model_B on the resulting state timeline to obtain contiguous runs, active sequences, and optional anomaly-comparison reports.
+3. Run Model_C on the sequence outputs to generate contextualized operating-mode and working-mode summaries.
 
 This layered structure allows the repository to be used incrementally, depending on whether the user is interested in state inference only, behavioral monitoring, or contextualized semantic interpretation.
 
-Model summaries
-Model_A
+## Model summaries
+
+### Model_A
 
 Model_A is packaged as iabm and focuses on:
 
-loading synchronized analog and digital industrial signals,
-preprocessing and preparation of state-identification datasets,
-training and evaluating supervised models for operational-state inference,
-generating state predictions and validation outputs,
-supporting practical deployment under partial instrumentation.
-Model_B
+* loading synchronized analog and digital industrial signals,
+* preprocessing and preparation of state-identification datasets,
+* training and evaluating supervised models for operational-state inference,
+* generating state predictions and validation outputs,
+* supporting practical deployment under partial instrumentation.
+
+### Model_B
 
 Model_B is packaged as iabm_behavior and focuses on:
 
-loading state timelines from Excel, CSV, or Parquet,
-smoothing short transient runs before behavioral aggregation,
-extracting contiguous state runs,
-identifying active multi-state behavioral sequences,
-generating sequence summaries and nominal sequence references,
-comparing observed sequences against nominal patterns with anomaly-oriented scoring.
+* loading state timelines from Excel, CSV, or Parquet,
+* smoothing short transient runs before behavioral aggregation,
+* extracting contiguous state runs,
+* identifying active multi-state behavioral sequences,
+* generating sequence summaries and nominal sequence references,
+* comparing observed sequences against nominal patterns with anomaly-oriented scoring.
 
 ### Model_C
 
