@@ -95,10 +95,11 @@ The repository includes the industrial datasets used to support the behavioral m
 
 *  `data/analogicas_nonans.parquet`
 
-Preprocessed analog industrial monitoring signals.
+   Preprocessed analog industrial monitoring signals.
+
 *  `data/digitales.parquet`
 
-Synchronized digital/control-layer signals.
+   Synchronized digital/control-layer signals.
 
 These datasets provide the basis for state inference, sequence extraction, and contextualized operational interpretation.
 
@@ -109,13 +110,13 @@ The repository includes a lightweight ontology-aligned contextualization schema 
 ### Contents
 *  `ontology/iabm.ttl`
 
-Core schema defining the main classes and relations used to contextualize observations, operational states, behavioral sequences, operating modes, working modes, and abnormality evidence.
+   Core schema defining the main classes and relations used to contextualize observations, operational states, behavioral sequences, operating modes, working modes, and abnormality evidence.
 *  `ontology/examples/wheel_washer.ttl`
 
-Minimal instance-level example derived from the wheel-washing industrial use case.
+   Minimal instance-level example derived from the wheel-washing industrial use case.
 *  `ontology/queries/example_queries.rq`
 
-Illustrative SPARQL queries showing how semantic entities can be explored and retrieved.
+   Illustrative SPARQL queries showing how semantic entities can be explored and retrieved.
 
 ### Scope
 
