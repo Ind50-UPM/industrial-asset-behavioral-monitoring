@@ -237,7 +237,7 @@ For the time being, the repository should be cited as the software and data comp
 
 ## License
 
-This repository is distributed under the terms of the AGPL-3.0 license. See LICENSE for details.
+This repository is distributed under the terms of the AGPL-3.0 license. See [LICENSE](LICENSE) for details.
 
 ## Contact
 
