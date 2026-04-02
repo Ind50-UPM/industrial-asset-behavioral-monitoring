@@ -93,10 +93,10 @@ industrial-asset-behavioral-monitoring/
 
 The repository includes the industrial datasets used to support the behavioral monitoring workflow:
 
-*  `data/analogicas_nonans.parquet`
+* `data/analogicas_nonans.parquet`
 <br>Preprocessed analog industrial monitoring signals.
 
-*  `data/digitales.parquet`
+* `data/digitales.parquet`
 <br>Synchronized digital/control-layer signals.
 
 These datasets provide the basis for state inference, sequence extraction, and contextualized operational interpretation.
@@ -106,13 +106,13 @@ These datasets provide the basis for state inference, sequence extraction, and c
 The repository includes a lightweight ontology-aligned contextualization schema under `ontology/`.
 
 ### Contents
-*  `ontology/iabm.ttl`
+* `ontology/iabm.ttl`
 <br>Core schema defining the main classes and relations used to contextualize observations, operational states, behavioral sequences, operating modes, working modes, and abnormality evidence.
 
-*  `ontology/examples/wheel_washer.ttl`
+* `ontology/examples/wheel_washer.ttl`
 <br>Minimal instance-level example derived from the wheel-washing industrial use case.
 
-*  `ontology/queries/example_queries.rq`
+* `ontology/queries/example_queries.rq`
 <br>Illustrative SPARQL queries showing how semantic entities can be explored and retrieved.
 
 ### Scope
