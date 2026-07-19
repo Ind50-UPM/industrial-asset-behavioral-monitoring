@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Incident Taxonomy &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e92c8fc6" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Longitudinal Validation" href="longitudinal_validation.html" />
+    <link rel="prev" title="Automation and Batch Runs" href="automation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="incident-taxonomy">
+<h1>Incident Taxonomy<a class="headerlink" href="#incident-taxonomy" title="Link to this heading">¶</a></h1>
+<p>The updated paper relies on an explicit incident-family layer instead of treating
+all non-nominal patterns as undifferentiated anomalies. In this repository,
+incident families are intended to act as <strong>weak labels</strong> that connect sequence
+patterns, semantic interpretation, and longitudinal episodes.</p>
+<section id="current-family-vocabulary">
+<h2>Current family vocabulary<a class="headerlink" href="#current-family-vocabulary" title="Link to this heading">¶</a></h2>
+<p>The current implementation exposes a lightweight but explicit vocabulary that can
+be extended project by project:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pump_abrupt_failure</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">float_recurrent_disturbance</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">process_saturation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">post_intervention_recovery</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">external_ambiguous_disturbance</span></code></p></li>
+</ul>
+<p>These labels are currently assigned through heuristic or rule-based logic in the
+semantic and longitudinal layers. They are therefore best understood as an
+interpretable baseline rather than as a final supervised taxonomy.</p>
+</section>
+<section id="why-families-matter">
+<h2>Why families matter<a class="headerlink" href="#why-families-matter" title="Link to this heading">¶</a></h2>
+<p>An anomaly score alone is often insufficient for longitudinal interpretation.
+Family labels make it possible to ask richer questions such as:</p>
+<ul class="simple">
+<li><p>Which sequence signatures recur across incidents?</p></li>
+<li><p>Which families are associated with prolonged recovery windows?</p></li>
+<li><p>Which patterns suggest degradation acceleration versus transient disturbance?</p></li>
+<li><p>Which weak labels can seed future family-specific occurrence models?</p></li>
+</ul>
+</section>
+<section id="relation-to-the-pipeline">
+<h2>Relation to the pipeline<a class="headerlink" href="#relation-to-the-pipeline" title="Link to this heading">¶</a></h2>
+<p>Incident families sit between sequence-level analytics and episode-level
+summaries:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_B</span></code> derives family-oriented signatures from longitudinal metrics.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_C</span></code> assigns family labels and reliability-oriented interpretations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_D</span></code> groups anomalous windows into episodes and occurrence summaries.</p></li>
+</ul>
+</section>
+<section id="ontology-alignment">
+<h2>Ontology alignment<a class="headerlink" href="#ontology-alignment" title="Link to this heading">¶</a></h2>
+<p>The ontology now includes explicit support for this layer through entities such
+as <code class="docutils literal notranslate"><span class="pre">IncidentFamily</span></code>, <code class="docutils literal notranslate"><span class="pre">IncidentEpisode</span></code>, <code class="docutils literal notranslate"><span class="pre">SequenceSignature</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">hasWeakLabel</span></code>. This keeps family labels inspectable and reusable across the
+code and documentation.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Incident Taxonomy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#current-family-vocabulary">Current family vocabulary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#why-families-matter">Why families matter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#relation-to-the-pipeline">Relation to the pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ontology-alignment">Ontology alignment</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="automation.html" title="previous chapter">Automation and Batch Runs</a></li>
+      <li>Next: <a href="longitudinal_validation.html" title="next chapter">Longitudinal Validation</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/incident_taxonomy.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

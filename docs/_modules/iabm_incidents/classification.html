@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iabm_incidents.classification &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e92c8fc6" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for iabm_incidents.classification</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Explainable rule-based incident-family classification.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">FamilyAssignmentConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_episode_features</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.taxonomy</span><span class="w"> </span><span class="kn">import</span> <span class="n">FAMILY_SIGNATURES</span><span class="p">,</span> <span class="n">FamilySignature</span>
+
+
+<div class="viewcode-block" id="FamilyScore">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.classification.FamilyScore">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FamilyScore</span><span class="p">:</span>
+    <span class="n">family</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">score</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">evidence</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="FamilyAssignment">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.classification.FamilyAssignment">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FamilyAssignment</span><span class="p">:</span>
+    <span class="n">primary_family</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">secondary_families</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">family_confidence</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">assignment_method</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">evidence</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="RuleBasedFamilyClassifier">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.classification.RuleBasedFamilyClassifier">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RuleBasedFamilyClassifier</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign families using semantic labels, explicit evidence rules, and declarative signatures.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RuleBasedFamilyClassifier.assign">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.classification.RuleBasedFamilyClassifier.assign">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assign</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">FamilyAssignmentConfig</span><span class="p">,</span>
+        <span class="n">episode_features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyAssignment</span><span class="p">:</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="n">episode_features</span> <span class="k">if</span> <span class="n">episode_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_features</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">)</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_score_candidates</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">)</span>
+        <span class="n">best</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">score</span><span class="p">)</span>
+        <span class="n">alternatives</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">item</span><span class="o">.</span><span class="n">family</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">family</span> <span class="o">!=</span> <span class="n">best</span><span class="o">.</span><span class="n">family</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">score</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
+        <span class="p">)</span>
+        <span class="n">primary_family</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">family</span> <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">score</span> <span class="o">&gt;=</span> <span class="n">config</span><span class="o">.</span><span class="n">minimum_confidence</span> <span class="k">else</span> <span class="s2">&quot;unclassified_incident&quot;</span>
+        <span class="n">confidence</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">score</span> <span class="k">if</span> <span class="n">primary_family</span> <span class="o">!=</span> <span class="s2">&quot;unclassified_incident&quot;</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">evidence</span> <span class="k">if</span> <span class="n">primary_family</span> <span class="o">!=</span> <span class="s2">&quot;unclassified_incident&quot;</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">FamilyAssignment</span><span class="p">(</span>
+            <span class="n">primary_family</span><span class="o">=</span><span class="n">primary_family</span><span class="p">,</span>
+            <span class="n">secondary_families</span><span class="o">=</span><span class="n">alternatives</span><span class="p">,</span>
+            <span class="n">family_confidence</span><span class="o">=</span><span class="n">confidence</span><span class="p">,</span>
+            <span class="n">assignment_method</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">method</span><span class="p">,</span>
+            <span class="n">evidence</span><span class="o">=</span><span class="n">evidence</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">FamilyScore</span><span class="p">]:</span>
+        <span class="n">semantic_scores</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_semantic_family_scores</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">)</span>
+        <span class="n">explicit_scores</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_score_pump_abrupt_failure</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_score_float_recurrent_disturbance</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_score_process_saturation</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_score_post_intervention_recovery</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_score_external_ambiguous_disturbance</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="n">features</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="n">signature_scores</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signature_scores</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+
+        <span class="n">combined</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">FamilyScore</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">score</span> <span class="ow">in</span> <span class="n">explicit_scores</span> <span class="o">+</span> <span class="n">signature_scores</span><span class="p">:</span>
+            <span class="n">existing</span> <span class="o">=</span> <span class="n">combined</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">family</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">combined</span><span class="p">[</span><span class="n">score</span><span class="o">.</span><span class="n">family</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">merged_evidence</span> <span class="o">=</span> <span class="n">existing</span><span class="o">.</span><span class="n">evidence</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">score</span><span class="o">.</span><span class="n">evidence</span> <span class="k">if</span> <span class="n">item</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing</span><span class="o">.</span><span class="n">evidence</span><span class="p">)</span>
+                <span class="n">combined</span><span class="p">[</span><span class="n">score</span><span class="o">.</span><span class="n">family</span><span class="p">]</span> <span class="o">=</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">existing</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">score</span><span class="o">.</span><span class="n">score</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">merged_evidence</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">semantic_score</span> <span class="ow">in</span> <span class="n">semantic_scores</span><span class="p">:</span>
+            <span class="n">existing</span> <span class="o">=</span> <span class="n">combined</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">semantic_score</span><span class="o">.</span><span class="n">family</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">combined</span><span class="p">[</span><span class="n">semantic_score</span><span class="o">.</span><span class="n">family</span><span class="p">]</span> <span class="o">=</span> <span class="n">semantic_score</span>
+                <span class="k">continue</span>
+            <span class="n">merged_evidence</span> <span class="o">=</span> <span class="n">existing</span><span class="o">.</span><span class="n">evidence</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">semantic_score</span><span class="o">.</span><span class="n">evidence</span> <span class="k">if</span> <span class="n">item</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing</span><span class="o">.</span><span class="n">evidence</span><span class="p">)</span>
+            <span class="n">combined</span><span class="p">[</span><span class="n">semantic_score</span><span class="o">.</span><span class="n">family</span><span class="p">]</span> <span class="o">=</span> <span class="n">FamilyScore</span><span class="p">(</span>
+                <span class="n">family</span><span class="o">=</span><span class="n">existing</span><span class="o">.</span><span class="n">family</span><span class="p">,</span>
+                <span class="n">score</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">existing</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">semantic_score</span><span class="o">.</span><span class="n">score</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">),</span>
+                <span class="n">evidence</span><span class="o">=</span><span class="n">merged_evidence</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">combined</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="ow">or</span> <span class="p">[</span><span class="n">FamilyScore</span><span class="p">(</span><span class="s2">&quot;unclassified_incident&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">())]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_semantic_family_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">FamilyScore</span><span class="p">]:</span>
+        <span class="n">family_counts</span> <span class="o">=</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;incident_family&quot;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">scores</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FamilyScore</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">peak_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;peak_score&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">family</span><span class="p">,</span> <span class="n">fraction</span> <span class="ow">in</span> <span class="n">family_counts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">evidence</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;semantic label frequency </span><span class="si">{</span><span class="n">fraction</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="n">score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fraction</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">peak_score</span> <span class="o">&gt;=</span> <span class="mf">2.0</span><span class="p">:</span>
+                <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;high peak deviation&quot;</span><span class="p">)</span>
+                <span class="n">score</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">scores</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FamilyScore</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="n">family</span><span class="p">,</span> <span class="n">score</span><span class="o">=</span><span class="n">score</span><span class="p">,</span> <span class="n">evidence</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">scores</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_signature_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">FamilyScore</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_score_signature</span><span class="p">(</span><span class="n">signature</span><span class="p">,</span> <span class="n">features</span><span class="p">)</span> <span class="k">for</span> <span class="n">signature</span> <span class="ow">in</span> <span class="n">FAMILY_SIGNATURES</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signature</span><span class="p">:</span> <span class="n">FamilySignature</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyScore</span><span class="p">:</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">signature</span><span class="o">.</span><span class="n">required_features</span><span class="p">)</span>
+        <span class="n">preferred</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">signature</span><span class="o">.</span><span class="n">preferred_features</span><span class="p">)</span>
+        <span class="n">incompatible</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">signature</span><span class="o">.</span><span class="n">incompatible_features</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">required</span><span class="p">:</span>
+            <span class="n">satisfied_required</span> <span class="o">=</span> <span class="p">[</span><span class="n">feature</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">required</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature_present</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">feature</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">satisfied_required</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">required</span><span class="p">):</span>
+                <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.45</span>
+                <span class="n">evidence</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;required feature: </span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">satisfied_required</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">satisfied_required</span><span class="p">:</span>
+                <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.20</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">satisfied_required</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">required</span><span class="p">))</span>
+                <span class="n">evidence</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;partial required feature: </span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">satisfied_required</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">preferred</span><span class="p">:</span>
+            <span class="n">satisfied_preferred</span> <span class="o">=</span> <span class="p">[</span><span class="n">feature</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">preferred</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature_present</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">feature</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="n">satisfied_preferred</span><span class="p">:</span>
+                <span class="n">score</span> <span class="o">+=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.35</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">satisfied_preferred</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">preferred</span><span class="p">))</span>
+                <span class="n">evidence</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;preferred feature: </span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">satisfied_preferred</span><span class="p">)</span>
+        <span class="n">violated</span> <span class="o">=</span> <span class="p">[</span><span class="n">feature</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">incompatible</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature_present</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">feature</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">violated</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">score</span> <span class="o">-</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;incompatible feature: </span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">violated</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="n">signature</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_pump_abrupt_failure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyScore</span><span class="p">:</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;min_consumption_deviation&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.35</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;large consumption drop&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_state_error_rate&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.25</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;state prediction degradation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_sequence_divergence&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.7</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.25</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;sequence rupture&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;onset_slope&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.15</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;abrupt onset&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="s2">&quot;pump_abrupt_failure&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_float_recurrent_disturbance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyScore</span><span class="p">:</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">semantic_frequency</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_semantic_frequency</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="s2">&quot;float_recurrent_disturbance&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">semantic_frequency</span> <span class="o">&gt;=</span> <span class="mf">0.6</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.35</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;dominant float disturbance semantic label&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_recurrence_excess&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.25</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;high recurrence excess&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;median_persistence_excess&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.1</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.20</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;persistent recurrent deviation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;mean_state_error_rate&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.2</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.10</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;state accuracy preserved&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_sequence_divergence&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.75</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.10</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;behavioral divergence present&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="s2">&quot;float_recurrent_disturbance&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_process_saturation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyScore</span><span class="p">:</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">semantic_frequency</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_semantic_frequency</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="s2">&quot;process_saturation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">semantic_frequency</span> <span class="o">&gt;=</span> <span class="mf">0.4</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.30</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;process saturation semantic support&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;median_duration_drift&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.25</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.25</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;longer-than-nominal runs&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_persistence_excess&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.15</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.25</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;persistent overload signal&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;signed_consumption_deviation&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.10</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;no consumption drop during anomaly&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;mean_mode_divergence&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.15</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.10</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;mode drift during sustained event&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="s2">&quot;process_saturation&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_post_intervention_recovery</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyScore</span><span class="p">:</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">semantic_frequency</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_semantic_frequency</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="s2">&quot;post_intervention_recovery&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">semantic_frequency</span> <span class="o">&gt;=</span> <span class="mf">0.6</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.50</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;post-intervention semantic support&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;mean_score&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.75</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.25</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;moderate residual deviation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;mean_state_error_rate&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.1</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.15</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;state model recovered&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;mean_mode_divergence&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.1</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.10</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;mode stabilized&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="s2">&quot;post_intervention_recovery&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_score_external_ambiguous_disturbance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FamilyScore</span><span class="p">:</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">evidence</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">feature_support</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_sequence_divergence&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.6</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_mode_divergence&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_state_error_rate&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.15</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">semantic_frequency</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_semantic_frequency</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">,</span> <span class="s2">&quot;external_ambiguous_disturbance&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">semantic_frequency</span> <span class="o">&gt;=</span> <span class="mf">0.4</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.35</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;external disturbance semantic support&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">feature_support</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.35</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;cross-domain deviation without dominant family&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;mixed_family_evidence&quot;</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.20</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;mixed family evidence&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="s2">&quot;max_recurrence_excess&quot;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.2</span><span class="p">:</span>
+            <span class="n">score</span> <span class="o">+=</span> <span class="mf">0.10</span>
+            <span class="n">evidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;not strongly recurrent&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FamilyScore</span><span class="p">(</span><span class="s2">&quot;external_ambiguous_disturbance&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evidence</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_semantic_frequency</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">family</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">family_series</span> <span class="o">=</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;incident_family&quot;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">family_series</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">family_series</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">family</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_derive_features</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+        <span class="n">synthetic_episodes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;episode_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;synthetic-episode&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;event_start&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="k">if</span> <span class="s2">&quot;start_time&quot;</span> <span class="ow">in</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">NaT</span><span class="p">],</span>
+                <span class="s2">&quot;event_end&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="k">if</span> <span class="s2">&quot;end_time&quot;</span> <span class="ow">in</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">NaT</span><span class="p">],</span>
+                <span class="s2">&quot;duration_seconds&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s2">&quot;end_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s2">&quot;start_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="p">{</span><span class="s2">&quot;start_time&quot;</span><span class="p">,</span> <span class="s2">&quot;end_time&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">episode_frame</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">empty</span>
+                    <span class="k">else</span> <span class="mf">0.0</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;time_to_recovery_seconds&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+                <span class="s2">&quot;peak_score&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">episode_frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;deviation_score&quot;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="mf">0.0</span><span class="p">])),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())],</span>
+                <span class="s2">&quot;mean_score&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">episode_frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;deviation_score&quot;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="mf">0.0</span><span class="p">])),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())],</span>
+                <span class="s2">&quot;source_window_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">index</span><span class="p">)],</span>
+                <span class="s2">&quot;asset_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">episode_frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;asset_id&quot;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="kc">None</span><span class="p">]))</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="kc">None</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">build_episode_features</span><span class="p">(</span><span class="n">synthetic_episodes</span><span class="p">,</span> <span class="n">episode_frame</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_feature</span><span class="p">(</span><span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cast</span><span class="o">=</span><span class="nb">float</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">value</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">()</span> <span class="k">if</span> <span class="n">cast</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">()</span> <span class="k">if</span> <span class="n">cast</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_feature_present</span><span class="p">(</span><span class="n">features</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;abrupt_onset&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;onset_slope&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;negative_consumption_deviation&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;min_consumption_deviation&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="s2">&quot;digital_electrical_mismatch&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_state_error_rate&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;high_sequence_divergence&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_sequence_divergence&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.7</span><span class="p">,</span>
+            <span class="s2">&quot;high_state_disagreement&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_state_error_rate&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;recurrence_excess&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_recurrence_excess&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;persistence_excess&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_persistence_excess&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.15</span><span class="p">,</span>
+            <span class="s2">&quot;state_stability&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mean_state_error_rate&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;duration_drift&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;median_duration_drift&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.25</span><span class="p">,</span>
+            <span class="s2">&quot;mode_divergence&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mean_mode_divergence&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.15</span><span class="p">,</span>
+            <span class="s2">&quot;non_negative_consumption_deviation&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;signed_consumption_deviation&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="s2">&quot;moderate_residual_deviation&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mean_score&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="mf">0.75</span><span class="p">,</span>
+            <span class="s2">&quot;restored_state_agreement&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mean_state_error_rate&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s2">&quot;mixed_family_evidence&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mixed_family_evidence&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s2">&quot;cross_domain_deviation&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="nb">sum</span><span class="p">([</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_sequence_divergence&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.6</span><span class="p">,</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_mode_divergence&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.2</span><span class="p">,</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_state_error_rate&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.15</span><span class="p">,</span>
+            <span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">checker</span> <span class="o">=</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">feature_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">checker</span><span class="p">(</span><span class="n">features</span><span class="p">))</span> <span class="k">if</span> <span class="n">checker</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">False</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

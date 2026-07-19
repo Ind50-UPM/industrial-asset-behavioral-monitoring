@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iabm_incidents.pipeline &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e92c8fc6" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for iabm_incidents.pipeline</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Indicator-driven orchestration for Model_D.</span>
+
+<span class="sd">This module contains the first fully materialized implementation of the</span>
+<span class="sd">indicator-based route proposed for ``Model_D``. The pipeline starts from</span>
+<span class="sd">state sequences and semantic assignments, derives observation exposure,</span>
+<span class="sd">constructs rolling windows, computes deviation indicators, scores each window,</span>
+<span class="sd">segments anomalous periods into candidate episodes, and enriches those episodes</span>
+<span class="sd">with aggregate descriptive features.</span>
+
+<span class="sd">The implementation intentionally remains lightweight and dataframe-oriented so</span>
+<span class="sd">that it can be executed in batch mode over historical campaigns without</span>
+<span class="sd">introducing external workflow dependencies. Every stage returns explicit</span>
+<span class="sd">tables, which makes the module convenient for exploratory notebooks, CLI batch</span>
+<span class="sd">processing, and Sphinx-generated API documentation.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelDConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.episodes</span><span class="w"> </span><span class="kn">import</span> <span class="n">IncidentEpisodeBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.exposure</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExposureConfig</span><span class="p">,</span> <span class="n">derive_observation_periods</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.baseline</span><span class="w"> </span><span class="kn">import</span> <span class="n">fit_nominal_baseline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_episode_features</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.indicators</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_window_indicators</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.scoring</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedDeviationScorer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.windows</span><span class="w"> </span><span class="kn">import</span> <span class="n">WindowBuildConfig</span><span class="p">,</span> <span class="n">build_rolling_windows</span>
+
+
+<div class="viewcode-block" id="IndicatorPipelineResult">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IndicatorPipelineResult">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">IndicatorPipelineResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Materialized outputs of the indicator-driven pipeline.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        observation_periods: Exposure-aware availability table describing the</span>
+<span class="sd">            intervals where the asset is considered observed and therefore</span>
+<span class="sd">            eligible for baseline estimation and episode detection.</span>
+<span class="sd">        windows: Rolling analysis windows built from the observation periods.</span>
+<span class="sd">        window_scores: Window-level indicator table with raw features and the</span>
+<span class="sd">            final aggregate deviation score.</span>
+<span class="sd">        episodes: Incident episodes segmented from scored windows and enriched</span>
+<span class="sd">            with aggregate episode-level descriptors when available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">observation_periods</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">windows</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">window_scores</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">episodes</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span></div>
+
+
+
+<div class="viewcode-block" id="IndicatorPipeline">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IndicatorPipeline">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IndicatorPipeline</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build indicator-driven episode outputs from source tables.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config: Full ``Model_D`` configuration. When omitted, the default</span>
+<span class="sd">            in-package configuration is used.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The class is intentionally state-light. It only keeps the resolved</span>
+<span class="sd">        configuration plus the reusable scorer and episode builder so that</span>
+<span class="sd">        callers can instantiate it once and execute it for many monthly or</span>
+<span class="sd">        asset-specific batches.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ModelDConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">ModelDConfig</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span> <span class="o">=</span> <span class="n">IncidentEpisodeBuilder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scorer</span> <span class="o">=</span> <span class="n">WeightedDeviationScorer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IndicatorPipeline.run">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IndicatorPipeline.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">assignments</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">registry</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">analogue</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">digital</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IndicatorPipelineResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute the end-to-end indicator pipeline.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sequences: Sequence-level table, typically produced by ``Model_B``,</span>
+<span class="sd">                containing temporal state information.</span>
+<span class="sd">            assignments: Semantic assignment table, typically produced by</span>
+<span class="sd">                ``Model_C``, aligned with the sequence rows or the derived</span>
+<span class="sd">                analysis windows.</span>
+<span class="sd">            registry: Optional canonical incident registry used to mark exposure</span>
+<span class="sd">                periods that should be excluded from nominal baseline fitting.</span>
+<span class="sd">            analogue: Optional analog telemetry table. When omitted, the method</span>
+<span class="sd">                falls back to the ``sequences`` dataframe as the observable time</span>
+<span class="sd">                base.</span>
+<span class="sd">            digital: Optional digital telemetry table. When omitted, the method</span>
+<span class="sd">                falls back to the ``sequences`` dataframe as the observable time</span>
+<span class="sd">                base.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A fully materialized :class:`IndicatorPipelineResult`.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            The current implementation uses robust medians from nominal windows</span>
+<span class="sd">            as a simple baseline abstraction. This is deliberate: it provides a</span>
+<span class="sd">            deterministic first pass that is cheap to compute across long</span>
+<span class="sd">            historical corpora while leaving room for later replacement by a</span>
+<span class="sd">            more advanced baseline model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">analogue_frame</span> <span class="o">=</span> <span class="n">analogue</span> <span class="k">if</span> <span class="n">analogue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">sequences</span>
+        <span class="n">digital_frame</span> <span class="o">=</span> <span class="n">digital</span> <span class="k">if</span> <span class="n">digital</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">sequences</span>
+        <span class="n">observation_periods</span> <span class="o">=</span> <span class="n">derive_observation_periods</span><span class="p">(</span>
+            <span class="n">analogue_frame</span><span class="p">,</span>
+            <span class="n">digital_frame</span><span class="p">,</span>
+            <span class="n">states</span><span class="o">=</span><span class="n">sequences</span><span class="p">,</span>
+            <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">ExposureConfig</span><span class="p">(</span><span class="n">gap_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">detection</span><span class="o">.</span><span class="n">maximum_gap</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">windows</span> <span class="o">=</span> <span class="n">build_rolling_windows</span><span class="p">(</span>
+            <span class="n">observation_periods</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">WindowBuildConfig</span><span class="p">(</span>
+                <span class="n">length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">length</span><span class="p">,</span>
+                <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">step</span><span class="p">,</span>
+                <span class="n">min_coverage</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">min_coverage</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">source_rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_merge_sources</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">assignments</span><span class="p">)</span>
+        <span class="n">baseline</span> <span class="o">=</span> <span class="n">fit_nominal_baseline</span><span class="p">(</span><span class="n">source_rows</span><span class="p">)</span>
+        <span class="n">window_scores</span> <span class="o">=</span> <span class="n">compute_window_indicators</span><span class="p">(</span>
+            <span class="n">source_rows</span><span class="p">,</span>
+            <span class="n">windows</span><span class="p">,</span>
+            <span class="kc">None</span> <span class="k">if</span> <span class="n">baseline</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">type</span><span class="p">(</span><span class="s1">&#39;_Baseline&#39;</span><span class="p">,</span> <span class="p">(),</span> <span class="p">{</span><span class="s1">&#39;medians&#39;</span><span class="p">:</span> <span class="n">baseline</span><span class="o">.</span><span class="n">medians</span><span class="p">()})(),</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">window_scores</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">IndicatorPipelineResult</span><span class="p">(</span><span class="n">observation_periods</span><span class="p">,</span> <span class="n">windows</span><span class="p">,</span> <span class="n">window_scores</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scorer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">window_scores</span><span class="p">[</span><span class="n">window_scores</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;semantic_status&#39;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span><span class="o">.</span><span class="n">ne</span><span class="p">(</span><span class="s1">&#39;ANOMALOUS&#39;</span><span class="p">)])</span>
+        <span class="n">window_scores</span> <span class="o">=</span> <span class="n">window_scores</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">window_scores</span><span class="p">[</span><span class="s1">&#39;deviation_score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scorer</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">window_scores</span><span class="p">)</span>
+        <span class="n">episodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="o">.</span><span class="n">build_episodes_from_window_scores</span><span class="p">(</span><span class="n">window_scores</span><span class="p">)</span>
+        <span class="n">episode_features</span> <span class="o">=</span> <span class="n">build_episode_features</span><span class="p">(</span><span class="n">episodes</span><span class="p">,</span> <span class="n">window_scores</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">episode_features</span><span class="o">.</span><span class="n">empty</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">episodes</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="n">episodes</span> <span class="o">=</span> <span class="n">episodes</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">episode_features</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;episode_id&#39;</span><span class="p">,</span> <span class="s1">&#39;asset_id&#39;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">IndicatorPipelineResult</span><span class="p">(</span><span class="n">observation_periods</span><span class="p">,</span> <span class="n">windows</span><span class="p">,</span> <span class="n">window_scores</span><span class="p">,</span> <span class="n">episodes</span><span class="p">)</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_merge_sources</span><span class="p">(</span><span class="n">sequences</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">assignments</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a unified row-wise source table from sequences and assignments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sequences: Sequence-level dataframe.</span>
+<span class="sd">            assignments: Semantic assignment dataframe.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A concatenated dataframe where temporal and identity columns are</span>
+<span class="sd">            backfilled across both views when one side does not expose them.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            Historical outputs generated before the current refactor do not</span>
+<span class="sd">            always preserve the same temporal column names. This helper applies</span>
+<span class="sd">            a small compatibility layer so downstream indicator code can operate</span>
+<span class="sd">            on a stable internal schema.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">sequence_frame</span> <span class="o">=</span> <span class="n">sequences</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">assignment_frame</span> <span class="o">=</span> <span class="n">assignments</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;window_start&#39;</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;start_time&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;start_time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;window_start&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;window_end&#39;</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;end_time&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;end_time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;window_end&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;start_time&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;start_time&#39;</span> <span class="ow">in</span> <span class="n">sequence_frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;start_time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sequence_frame</span><span class="p">[</span><span class="s1">&#39;start_time&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;end_time&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;end_time&#39;</span> <span class="ow">in</span> <span class="n">sequence_frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;end_time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sequence_frame</span><span class="p">[</span><span class="s1">&#39;end_time&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;asset_id&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">assignment_frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;asset_id&#39;</span> <span class="ow">in</span> <span class="n">sequence_frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">assignment_frame</span><span class="p">[</span><span class="s1">&#39;asset_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sequence_frame</span><span class="p">[</span><span class="s1">&#39;asset_id&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">sequence_frame</span><span class="p">,</span> <span class="n">assignment_frame</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

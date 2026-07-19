@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "industrial-incidents-model-d"
+version = "0.1.0"
+description = "Incident-family and longitudinal episode package for industrial asset monitoring"
+authors = ["Antonio Bello-García", "Javier Villalba-Díez", "Ana González-Marcos", "Joaquín Ordieres-Meré"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "iabm_incidents"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.1.0"
+pyarrow = "^14.0.0"
+openpyxl = "^3.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+industrial-incidents = "iabm_incidents.main:main"

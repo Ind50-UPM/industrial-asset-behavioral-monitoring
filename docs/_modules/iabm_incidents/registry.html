@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iabm_incidents.registry &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e92c8fc6" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for iabm_incidents.registry</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Incident registry normalization and matching helpers.</span>
+
+<span class="sd">The registry abstraction used by ``Model_D`` must reconcile several flavours of</span>
+<span class="sd">incident annotation. Some sources provide precise event timestamps, others</span>
+<span class="sd">document longer operational windows, and exploratory candidate registries may</span>
+<span class="sd">only carry weak labels derived from state words or duration patterns.</span>
+
+<span class="sd">This module offers a small compatibility layer over those heterogeneous inputs.</span>
+<span class="sd">Its responsibilities are deliberately focused on I/O, timestamp normalization,</span>
+<span class="sd">and simple temporal alignment so the rest of the incident pipeline can consume a</span>
+<span class="sd">stable schema regardless of the upstream source.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span><span class="p">,</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="IncidentRecord">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRecord">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">IncidentRecord</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalized incident record supporting both source windows and real events.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        incident_id: Stable identifier of the registry entry.</span>
+<span class="sd">        source_window_start: Start of the source analytical window when the</span>
+<span class="sd">            incident comes from a generated candidate registry.</span>
+<span class="sd">        source_window_end: End of the source analytical window.</span>
+<span class="sd">        documented_start: Human-validated start timestamp, if known.</span>
+<span class="sd">        documented_end: Human-validated end timestamp, if known.</span>
+<span class="sd">        event_time: Representative timestamp for point-like events.</span>
+<span class="sd">        event_time_precision: Optional description of timestamp precision.</span>
+<span class="sd">        family: Primary incident family.</span>
+<span class="sd">        secondary_family: Optional secondary family.</span>
+<span class="sd">        recovery_time: Recovery timestamp when available.</span>
+<span class="sd">        recovery_status: Outcome or completeness of the recovery information.</span>
+<span class="sd">        label_strength: Confidence or governance label of the annotation.</span>
+<span class="sd">        source_type: Provenance of the registry row.</span>
+<span class="sd">        downtime_start: Downtime start timestamp when distinct from incident</span>
+<span class="sd">            onset.</span>
+<span class="sd">        downtime_end: Downtime end timestamp.</span>
+<span class="sd">        maintenance_time: Maintenance intervention timestamp.</span>
+<span class="sd">        affected_subsystem: Optional subsystem scope.</span>
+<span class="sd">        notes: Free-text operator notes.</span>
+<span class="sd">        asset_id: Asset or node identifier.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">incident_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">source_window_start</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">source_window_end</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">documented_start</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">documented_end</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">event_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">event_time_precision</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">family</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">secondary_family</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">recovery_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">recovery_status</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">label_strength</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">source_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">downtime_start</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">downtime_end</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">maintenance_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">affected_subsystem</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">notes</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">asset_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="IncidentRecord.to_dict">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRecord.to_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serialize the dataclass as a plain dictionary.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">asdict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="IncidentRegistry">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IncidentRegistry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load, normalize, and align incident tables with longitudinal episodes.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The methods in this class return pandas dataframes instead of dedicated</span>
+<span class="sd">        domain objects because they are intended to integrate directly with the</span>
+<span class="sd">        tabular outputs produced by the rest of the repository.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="IncidentRegistry.load">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.load">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and normalize a registry table from a supported file format.&quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;.parquet&#39;</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;.xlsx&#39;</span><span class="p">,</span> <span class="s1">&#39;.xls&#39;</span><span class="p">}:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;.csv&#39;</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unsupported file extension: </span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.normalize">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.normalize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normalize timestamps and fill compatible optional fields.&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">incidents</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">incidents</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">incidents</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">timestamp_columns</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;source_window_start&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;source_window_end&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;documented_start&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;documented_end&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;event_time&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;recovery_time&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;downtime_start&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;downtime_end&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;maintenance_time&#39;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">timestamp_columns</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">frame</span><span class="p">[</span><span class="n">column</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="n">column</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="s1">&#39;incident_family&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;family&#39;</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;incident_family&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;family&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;family&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s1">&#39;incident_family&#39;</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;family&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;incident_family&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="s1">&#39;source_window_start&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_window_start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;documented_start&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_window_start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_window_start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;documented_start&#39;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="s1">&#39;source_window_end&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_window_end&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;documented_end&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_window_end&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_window_end&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;documented_end&#39;</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s1">&#39;secondary_family&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;event_time_precision&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;recovery_status&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;label_strength&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;source_type&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;affected_subsystem&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;notes&#39;</span><span class="p">,</span>
+        <span class="p">]:</span>
+            <span class="k">if</span> <span class="n">column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">frame</span><span class="p">[</span><span class="n">column</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="s1">&#39;incident_id&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;incident_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;incident_</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="p">))]</span>
+
+        <span class="k">return</span> <span class="n">frame</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.confirmed">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.confirmed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">confirmed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return only registry entries explicitly marked as confirmed.&quot;&quot;&quot;</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">incidents</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span><span class="p">[</span><span class="n">frame</span><span class="p">[</span><span class="s1">&#39;label_strength&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="s1">&#39;confirmed&#39;</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.weakly_labelled">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.weakly_labelled">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">weakly_labelled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return weakly or strongly labelled entries usable for exploration.&quot;&quot;&quot;</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">incidents</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span><span class="p">[</span><span class="n">frame</span><span class="p">[</span><span class="s1">&#39;label_strength&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s1">&#39;weak&#39;</span><span class="p">,</span> <span class="s1">&#39;strong&#39;</span><span class="p">])]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.unresolved">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.unresolved">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unresolved</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return rows that still lack family or label-strength attribution.&quot;&quot;&quot;</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">incidents</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span><span class="p">[</span><span class="n">frame</span><span class="p">[</span><span class="s1">&#39;family&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span> <span class="o">|</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;label_strength&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.overlapping">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.overlapping">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">overlapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return incidents whose documented span overlaps the target interval.&quot;&quot;&quot;</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">incidents</span><span class="p">)</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+        <span class="n">reference_start</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;documented_start&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s1">&#39;event_time&#39;</span><span class="p">])</span>
+        <span class="n">reference_end</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s1">&#39;documented_end&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s1">&#39;event_time&#39;</span><span class="p">])</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">reference_start</span><span class="o">.</span><span class="n">le</span><span class="p">(</span><span class="n">end_time</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">reference_end</span><span class="o">.</span><span class="n">ge</span><span class="p">(</span><span class="n">start_time</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.match_candidates">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.match_candidates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">match_candidates</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">candidates</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">tolerance</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Match candidate windows or episodes to registry events with tolerance.&quot;&quot;&quot;</span>
+
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">incidents</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">empty</span> <span class="ow">or</span> <span class="n">candidates</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;incident_id&#39;</span><span class="p">,</span> <span class="s1">&#39;candidate_id&#39;</span><span class="p">,</span> <span class="s1">&#39;matched&#39;</span><span class="p">,</span> <span class="s1">&#39;time_delta_seconds&#39;</span><span class="p">])</span>
+
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">candidates</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">candidate_start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+                <span class="n">candidate</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;event_start&#39;</span><span class="p">,</span> <span class="n">candidate</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;source_window_start&#39;</span><span class="p">,</span> <span class="n">candidate</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;start_time&#39;</span><span class="p">)))</span>
+            <span class="p">)</span>
+            <span class="n">candidate_id</span> <span class="o">=</span> <span class="n">candidate</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;episode_id&#39;</span><span class="p">,</span> <span class="n">candidate</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;candidate_id&#39;</span><span class="p">,</span> <span class="n">candidate</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">incident</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+                <span class="n">incident_time</span> <span class="o">=</span> <span class="n">incident</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;event_time&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">incident_time</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pd</span><span class="o">.</span><span class="n">notna</span><span class="p">(</span><span class="n">incident</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;documented_start&#39;</span><span class="p">)):</span>
+                    <span class="n">incident_time</span> <span class="o">=</span> <span class="n">incident</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;documented_start&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">incident_time</span><span class="p">)</span> <span class="ow">or</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">candidate_start</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">((</span><span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">candidate_start</span><span class="p">)</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">incident_time</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
+                <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s1">&#39;incident_id&#39;</span><span class="p">:</span> <span class="n">incident</span><span class="p">[</span><span class="s1">&#39;incident_id&#39;</span><span class="p">],</span>
+                        <span class="s1">&#39;candidate_id&#39;</span><span class="p">:</span> <span class="n">candidate_id</span><span class="p">,</span>
+                        <span class="s1">&#39;matched&#39;</span><span class="p">:</span> <span class="n">delta</span> <span class="o">&lt;=</span> <span class="n">tolerance</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span>
+                        <span class="s1">&#39;time_delta_seconds&#39;</span><span class="p">:</span> <span class="n">delta</span><span class="p">,</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IncidentRegistry.align_with_episodes">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.IncidentRegistry.align_with_episodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">align_with_episodes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">incidents</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">episodes</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether incident events fall inside derived episode windows.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            incidents: Registry dataframe.</span>
+<span class="sd">            episodes: Episode dataframe generated by ``Model_D``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dataframe indicating whether each incident time falls within a</span>
+<span class="sd">            compatible detected episode.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">incidents</span><span class="o">.</span><span class="n">empty</span> <span class="ow">or</span> <span class="n">episodes</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s1">&#39;incident_id&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;event_time&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;incident_family&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;matched_episode_id&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;window_contains_event&#39;</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="n">normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">incidents</span><span class="p">)</span>
+        <span class="n">episode_frame</span> <span class="o">=</span> <span class="n">episodes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">episode_frame</span><span class="p">[</span><span class="s1">&#39;pre_event_start&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s1">&#39;pre_event_start&#39;</span><span class="p">])</span>
+        <span class="n">episode_frame</span><span class="p">[</span><span class="s1">&#39;recovery_end&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s1">&#39;recovery_end&#39;</span><span class="p">])</span>
+        <span class="n">episode_frame</span><span class="p">[</span><span class="s1">&#39;event_end&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">episode_frame</span><span class="p">[</span><span class="s1">&#39;event_end&#39;</span><span class="p">])</span>
+        <span class="n">family_column</span> <span class="o">=</span> <span class="s1">&#39;primary_family&#39;</span> <span class="k">if</span> <span class="s1">&#39;primary_family&#39;</span> <span class="ow">in</span> <span class="n">episode_frame</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="s1">&#39;incident_family&#39;</span>
+
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">incident</span> <span class="ow">in</span> <span class="n">normalized</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">family_matches</span> <span class="o">=</span> <span class="n">episode_frame</span><span class="p">[</span><span class="n">episode_frame</span><span class="p">[</span><span class="n">family_column</span><span class="p">]</span> <span class="o">==</span> <span class="n">incident</span><span class="p">[</span><span class="s1">&#39;incident_family&#39;</span><span class="p">]]</span>
+            <span class="n">match_id</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">contains_event</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">episode</span> <span class="ow">in</span> <span class="n">family_matches</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+                <span class="n">window_end</span> <span class="o">=</span> <span class="n">episode</span><span class="p">[</span><span class="s1">&#39;recovery_end&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">window_end</span><span class="p">):</span>
+                    <span class="n">window_end</span> <span class="o">=</span> <span class="n">episode</span><span class="p">[</span><span class="s1">&#39;event_end&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">episode</span><span class="p">[</span><span class="s1">&#39;pre_event_start&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">incident</span><span class="p">[</span><span class="s1">&#39;event_time&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">window_end</span><span class="p">:</span>
+                    <span class="n">match_id</span> <span class="o">=</span> <span class="n">episode</span><span class="p">[</span><span class="s1">&#39;episode_id&#39;</span><span class="p">]</span>
+                    <span class="n">contains_event</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
+
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s1">&#39;incident_id&#39;</span><span class="p">:</span> <span class="n">incident</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;incident_id&#39;</span><span class="p">,</span> <span class="n">index</span><span class="p">),</span>
+                    <span class="s1">&#39;event_time&#39;</span><span class="p">:</span> <span class="n">incident</span><span class="p">[</span><span class="s1">&#39;event_time&#39;</span><span class="p">],</span>
+                    <span class="s1">&#39;incident_family&#39;</span><span class="p">:</span> <span class="n">incident</span><span class="p">[</span><span class="s1">&#39;incident_family&#39;</span><span class="p">],</span>
+                    <span class="s1">&#39;matched_episode_id&#39;</span><span class="p">:</span> <span class="n">match_id</span><span class="p">,</span>
+                    <span class="s1">&#39;window_contains_event&#39;</span><span class="p">:</span> <span class="n">contains_event</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

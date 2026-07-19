@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iabm_behavior.sequences &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e92c8fc6" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for iabm_behavior.sequences</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Sequence-analysis utilities for Model_B behavioral modeling.</span>
+
+<span class="sd">This module contains the typed data structures and core logic that translate a</span>
+<span class="sd">state timeline into progressively richer behavioral abstractions: contiguous</span>
+<span class="sd">runs, active sequences, nominal references, anomaly comparisons, longitudinal</span>
+<span class="sd">metrics, recovery metrics, and family-signature summaries.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="StateRun">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.StateRun">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">StateRun</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contiguous temporal segment where the decoded state remains constant.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        state: Integer state identifier observed throughout the run.</span>
+<span class="sd">        start_time: Timestamp of the first sample in the run.</span>
+<span class="sd">        end_time: Timestamp of the last sample in the run.</span>
+<span class="sd">        sample_count: Number of samples belonging to the run.</span>
+<span class="sd">        duration_seconds: Duration covered by the run.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">state</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">start_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span>
+    <span class="n">end_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span>
+    <span class="n">sample_count</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">duration_seconds</span><span class="p">:</span> <span class="nb">float</span></div>
+
+
+
+<div class="viewcode-block" id="ActiveSequence">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.ActiveSequence">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ActiveSequence</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Higher-level sequence formed by consecutive non-zero runs.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        start_time: Timestamp of the first run in the sequence.</span>
+<span class="sd">        end_time: Timestamp of the last run in the sequence.</span>
+<span class="sd">        states: Ordered tuple of non-zero states composing the sequence.</span>
+<span class="sd">        total_duration_seconds: Total duration accumulated by the sequence.</span>
+<span class="sd">        run_count: Number of runs participating in the sequence.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">start_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span>
+    <span class="n">end_time</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span>
+    <span class="n">states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">total_duration_seconds</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">run_count</span><span class="p">:</span> <span class="nb">int</span></div>
+
+
+
+<div class="viewcode-block" id="NominalSequenceReference">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.NominalSequenceReference">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NominalSequenceReference</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Condensed representation of a recurrent nominal sequence word.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        states: Canonical state word used as nominal reference.</span>
+<span class="sd">        count: Number of observations supporting the reference.</span>
+<span class="sd">        avg_duration_seconds: Average observed duration for the word.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">avg_duration_seconds</span><span class="p">:</span> <span class="nb">float</span></div>
+
+
+
+<div class="viewcode-block" id="SequenceComparison">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.SequenceComparison">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SequenceComparison</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Anomaly-oriented comparison between one observed and one nominal word.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        observed_states: Observed state word.</span>
+<span class="sd">        nominal_states: Best-matching nominal word.</span>
+<span class="sd">        exact_match: Whether both words are identical.</span>
+<span class="sd">        state_distance: Edit-distance-like difference between words.</span>
+<span class="sd">        dtw_distance: Dynamic-time-warping-inspired mismatch score.</span>
+<span class="sd">        duration_ratio_delta: Relative duration deviation from nominal.</span>
+<span class="sd">        anomaly_score: Combined score used for thresholding.</span>
+<span class="sd">        is_anomalous: Flag indicating whether the score crosses the threshold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">observed_states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">nominal_states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">exact_match</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">state_distance</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">dtw_distance</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">duration_ratio_delta</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">anomaly_score</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">is_anomalous</span><span class="p">:</span> <span class="nb">bool</span></div>
+
+
+
+<div class="viewcode-block" id="LongitudinalSequenceMetrics">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.LongitudinalSequenceMetrics">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LongitudinalSequenceMetrics</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rolling metrics describing the temporal behavior of one sequence event.&quot;&quot;&quot;</span>
+
+    <span class="n">sequence_index</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">states</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">recurrence_interval_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">sequence_persistence_ratio</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">over_activation_rate</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">transition_instability</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">duration_drift</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">rolling_divergence</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">nominal_match</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">anomaly_flag</span><span class="p">:</span> <span class="nb">bool</span></div>
+
+
+
+<div class="viewcode-block" id="RecoveryMetrics">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.RecoveryMetrics">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RecoveryMetrics</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recovery-oriented summary anchored on one anomalous sequence.&quot;&quot;&quot;</span>
+
+    <span class="n">anomaly_sequence_index</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">recovered_sequence_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">time_to_recovery_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">partial_recovery_score</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">post_intervention_regime_shift</span><span class="p">:</span> <span class="nb">bool</span></div>
+
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BehavioralSequenceAnalyzer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load state timelines and derive run-, sequence-, and longitudinal-level features.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        state_column: Name of the state column used when reading input tables.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The analyzer is intentionally deterministic and side-effect free so it</span>
+<span class="sd">        can be used both by small CLIs and by the larger month-wise batch</span>
+<span class="sd">        utilities introduced for historical campaign processing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_column</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Predicted_State&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_column</span> <span class="o">=</span> <span class="n">state_column</span>
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.load_state_timeline">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.load_state_timeline">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_timeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a state timeline from Parquet, Excel, or CSV.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file_path: Path to the timeline source.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Time-indexed dataframe sorted chronologically.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If the file format is unsupported or no usable temporal</span>
+<span class="sd">                axis and state column can be resolved.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            The helper supports the repository&#39;s real datasets where the state</span>
+<span class="sd">            column may be named either ``Predicted_State`` or ``estado``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.parquet&quot;</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;.xlsx&quot;</span><span class="p">,</span> <span class="s2">&quot;.xls&quot;</span><span class="p">}:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.csv&quot;</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported file extension: </span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s2">&quot;estado&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;estado&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_column</span><span class="p">})</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;State column &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">state_column</span><span class="si">}</span><span class="s2">&#39; not found in </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;Time&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Time&quot;</span><span class="p">])</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Time&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A datetime index or a &#39;Time&#39; column is required.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.smooth_short_runs">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.smooth_short_runs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">smooth_short_runs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">timeline</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">min_duration_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">min_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge short transient runs into the following active state.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timeline: Time-indexed state timeline.</span>
+<span class="sd">            min_duration_seconds: Maximum duration treated as transient.</span>
+<span class="sd">            min_samples: Maximum sample count treated as transient.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Smoothed copy of the input timeline.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            The heuristic is intentionally asymmetric: transient active runs are</span>
+<span class="sd">            merged into the following active run, not into the previous one, so</span>
+<span class="sd">            later sequence extraction remains compatible with the operational</span>
+<span class="sd">            progression of the signal.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">smoothed</span> <span class="o">=</span> <span class="n">timeline</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">runs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_runs</span><span class="p">(</span><span class="n">smoothed</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">runs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">smoothed</span>
+
+        <span class="n">values</span> <span class="o">=</span> <span class="n">smoothed</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state_column</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">run_boundaries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_run_boundaries</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">run</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">runs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">run</span><span class="o">.</span><span class="n">state</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="ow">and</span> <span class="n">runs</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="ow">and</span> <span class="n">run</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">runs</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state</span>
+                <span class="ow">and</span> <span class="n">run</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="o">&lt;</span> <span class="n">min_duration_seconds</span>
+                <span class="ow">and</span> <span class="n">run</span><span class="o">.</span><span class="n">sample_count</span> <span class="o">&lt;=</span> <span class="n">min_samples</span>
+            <span class="p">):</span>
+                <span class="n">start_idx</span><span class="p">,</span> <span class="n">stop_idx</span> <span class="o">=</span> <span class="n">run_boundaries</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                <span class="n">values</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">stop_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">runs</span><span class="p">[</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state</span>
+
+        <span class="n">smoothed</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state_column</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+        <span class="k">return</span> <span class="n">smoothed</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.extract_runs">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.extract_runs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_runs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeline</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">StateRun</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract contiguous runs of the same state from a timeline.&quot;&quot;&quot;</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="n">timeline</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state_column</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">boundaries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_run_boundaries</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+        <span class="n">runs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StateRun</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">stop_idx</span> <span class="ow">in</span> <span class="n">boundaries</span><span class="p">:</span>
+            <span class="n">start_time</span> <span class="o">=</span> <span class="n">timeline</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">start_idx</span><span class="p">]</span>
+            <span class="n">end_time</span> <span class="o">=</span> <span class="n">timeline</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">stop_idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">duration_seconds</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">end_time</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">runs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">StateRun</span><span class="p">(</span>
+                    <span class="n">state</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">states</span><span class="p">[</span><span class="n">start_idx</span><span class="p">]),</span>
+                    <span class="n">start_time</span><span class="o">=</span><span class="n">start_time</span><span class="p">,</span>
+                    <span class="n">end_time</span><span class="o">=</span><span class="n">end_time</span><span class="p">,</span>
+                    <span class="n">sample_count</span><span class="o">=</span><span class="n">stop_idx</span> <span class="o">-</span> <span class="n">start_idx</span><span class="p">,</span>
+                    <span class="n">duration_seconds</span><span class="o">=</span><span class="n">duration_seconds</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">runs</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.extract_active_sequences">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.extract_active_sequences">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_active_sequences</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeline</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Group consecutive non-zero runs into higher-level active sequences.&quot;&quot;&quot;</span>
+        <span class="n">runs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_runs</span><span class="p">(</span><span class="n">timeline</span><span class="p">)</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_runs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StateRun</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">run</span><span class="o">.</span><span class="n">state</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">current_runs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">run</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">current_runs</span><span class="p">:</span>
+                <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_active_sequence</span><span class="p">(</span><span class="n">current_runs</span><span class="p">))</span>
+                <span class="n">current_runs</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">current_runs</span><span class="p">:</span>
+            <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_active_sequence</span><span class="p">(</span><span class="n">current_runs</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">sequences</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.summarize_sequence_words">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.summarize_sequence_words">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summarize_sequence_words</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sequences</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Aggregate repeated sequence words and their average duration.&quot;&quot;&quot;</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;word&quot;</span><span class="p">:</span> <span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span>
+                <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="s2">&quot;duration_seconds&quot;</span><span class="p">:</span> <span class="n">sequence</span><span class="o">.</span><span class="n">total_duration_seconds</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">sequence</span> <span class="ow">in</span> <span class="n">sequences</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;word&quot;</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;avg_duration_seconds&quot;</span><span class="p">])</span>
+
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">frame</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;word&quot;</span><span class="p">,</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">),</span> <span class="n">avg_duration_seconds</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;duration_seconds&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">))</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;avg_duration_seconds&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">])</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.build_nominal_reference">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.build_nominal_reference">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_nominal_reference</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sequences</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">NominalSequenceReference</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert observed sequences into a condensed nominal reference list.&quot;&quot;&quot;</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">summarize_sequence_words</span><span class="p">(</span><span class="n">sequences</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">NominalSequenceReference</span><span class="p">(</span>
+                <span class="n">states</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">word</span><span class="p">),</span>
+                <span class="n">count</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">),</span>
+                <span class="n">avg_duration_seconds</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">avg_duration_seconds</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">word</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">avg_duration_seconds</span> <span class="ow">in</span> <span class="n">summary</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.compare_to_nominal">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.compare_to_nominal">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare_to_nominal</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observed_sequences</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">],</span>
+        <span class="n">nominal_references</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">NominalSequenceReference</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">anomaly_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compare observed sequence words against a nominal reference set.&quot;&quot;&quot;</span>
+        <span class="n">references</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nominal_references</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_compare_single_sequence</span><span class="p">(</span>
+                    <span class="n">sequence</span><span class="p">,</span>
+                    <span class="n">references</span><span class="p">,</span>
+                    <span class="n">anomaly_threshold</span><span class="o">=</span><span class="n">anomaly_threshold</span><span class="p">,</span>
+                <span class="p">)</span><span class="o">.</span><span class="vm">__dict__</span>
+                <span class="k">for</span> <span class="n">sequence</span> <span class="ow">in</span> <span class="n">observed_sequences</span>
+            <span class="p">]</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.compute_longitudinal_metrics">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.compute_longitudinal_metrics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_longitudinal_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observed_sequences</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">],</span>
+        <span class="n">nominal_references</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">NominalSequenceReference</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">anomaly_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute temporal recurrence and divergence metrics for each sequence.&quot;&quot;&quot;</span>
+        <span class="n">sequences</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">observed_sequences</span><span class="p">)</span>
+        <span class="n">references</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nominal_references</span><span class="p">)</span>
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">sequence</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sequences</span><span class="p">):</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compare_single_sequence</span><span class="p">(</span>
+                <span class="n">sequence</span><span class="p">,</span>
+                <span class="n">references</span><span class="p">,</span>
+                <span class="n">anomaly_threshold</span><span class="o">=</span><span class="n">anomaly_threshold</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">previous_same</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_previous_same_sequence</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+            <span class="n">previous_sequence</span> <span class="o">=</span> <span class="n">sequences</span><span class="p">[</span><span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">index</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">LongitudinalSequenceMetrics</span><span class="p">(</span>
+                    <span class="n">sequence_index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+                    <span class="n">states</span><span class="o">=</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span>
+                    <span class="n">recurrence_interval_seconds</span><span class="o">=</span><span class="p">(</span>
+                        <span class="kc">None</span>
+                        <span class="k">if</span> <span class="n">previous_same</span> <span class="ow">is</span> <span class="kc">None</span>
+                        <span class="k">else</span> <span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">start_time</span> <span class="o">-</span> <span class="n">previous_same</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+                    <span class="p">),</span>
+                    <span class="n">sequence_persistence_ratio</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_sequence_persistence_ratio</span><span class="p">(</span><span class="n">sequence</span><span class="p">),</span>
+                    <span class="n">over_activation_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_over_activation_rate</span><span class="p">(</span><span class="n">sequence</span><span class="p">),</span>
+                    <span class="n">transition_instability</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_transition_instability</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="n">previous_sequence</span><span class="p">),</span>
+                    <span class="n">duration_drift</span><span class="o">=</span><span class="n">comparison</span><span class="o">.</span><span class="n">duration_ratio_delta</span><span class="p">,</span>
+                    <span class="n">rolling_divergence</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rolling_divergence</span><span class="p">(</span>
+                        <span class="n">sequences</span><span class="p">,</span>
+                        <span class="n">references</span><span class="p">,</span>
+                        <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+                        <span class="n">anomaly_threshold</span><span class="o">=</span><span class="n">anomaly_threshold</span><span class="p">,</span>
+                        <span class="n">window</span><span class="o">=</span><span class="n">rolling_window</span><span class="p">,</span>
+                    <span class="p">),</span>
+                    <span class="n">nominal_match</span><span class="o">=</span><span class="n">comparison</span><span class="o">.</span><span class="n">nominal_states</span><span class="p">,</span>
+                    <span class="n">anomaly_flag</span><span class="o">=</span><span class="n">comparison</span><span class="o">.</span><span class="n">is_anomalous</span><span class="p">,</span>
+                <span class="p">)</span><span class="o">.</span><span class="vm">__dict__</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.compute_recovery_metrics">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.compute_recovery_metrics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_recovery_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">observed_sequences</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">],</span>
+        <span class="n">nominal_references</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">NominalSequenceReference</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">anomaly_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Estimate recovery behavior after anomalous sequences.&quot;&quot;&quot;</span>
+        <span class="n">sequences</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">observed_sequences</span><span class="p">)</span>
+        <span class="n">references</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nominal_references</span><span class="p">)</span>
+        <span class="n">comparisons</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compare_single_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="n">references</span><span class="p">,</span> <span class="n">anomaly_threshold</span><span class="o">=</span><span class="n">anomaly_threshold</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">sequence</span> <span class="ow">in</span> <span class="n">sequences</span>
+        <span class="p">]</span>
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">comparison</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">comparisons</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">comparison</span><span class="o">.</span><span class="n">is_anomalous</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">recovered_index</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">recovery_time</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">partial_recovery_score</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">regime_shift</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="k">for</span> <span class="n">future_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">comparisons</span><span class="p">)):</span>
+                <span class="n">future</span> <span class="o">=</span> <span class="n">comparisons</span><span class="p">[</span><span class="n">future_index</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">nominal_states</span> <span class="o">!=</span> <span class="n">comparison</span><span class="o">.</span><span class="n">nominal_states</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">partial_recovery_score</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                    <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="mf">1.0</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">future</span><span class="o">.</span><span class="n">anomaly_score</span><span class="p">,</span> <span class="n">comparison</span><span class="o">.</span><span class="n">anomaly_score</span><span class="p">)</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">comparison</span><span class="o">.</span><span class="n">anomaly_score</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">future</span><span class="o">.</span><span class="n">is_anomalous</span><span class="p">:</span>
+                    <span class="n">recovered_index</span> <span class="o">=</span> <span class="n">future_index</span>
+                    <span class="n">recovery_time</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">sequences</span><span class="p">[</span><span class="n">future_index</span><span class="p">]</span><span class="o">.</span><span class="n">end_time</span> <span class="o">-</span> <span class="n">sequences</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">end_time</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+                    <span class="n">regime_shift</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">observed_states</span> <span class="o">!=</span> <span class="n">comparison</span><span class="o">.</span><span class="n">observed_states</span>
+                    <span class="k">break</span>
+
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">RecoveryMetrics</span><span class="p">(</span>
+                    <span class="n">anomaly_sequence_index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+                    <span class="n">recovered_sequence_index</span><span class="o">=</span><span class="n">recovered_index</span><span class="p">,</span>
+                    <span class="n">time_to_recovery_seconds</span><span class="o">=</span><span class="n">recovery_time</span><span class="p">,</span>
+                    <span class="n">partial_recovery_score</span><span class="o">=</span><span class="n">partial_recovery_score</span><span class="p">,</span>
+                    <span class="n">post_intervention_regime_shift</span><span class="o">=</span><span class="n">regime_shift</span><span class="p">,</span>
+                <span class="p">)</span><span class="o">.</span><span class="vm">__dict__</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BehavioralSequenceAnalyzer.summarize_family_signatures">
+<a class="viewcode-back" href="../../model_b.html#iabm_behavior.BehavioralSequenceAnalyzer.summarize_family_signatures">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summarize_family_signatures</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">longitudinal_metrics</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Summarize sequence signatures into coarse incident-family candidates.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">longitudinal_metrics</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;incident_family_candidate&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;signature_word&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;count&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;mean_transition_instability&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;mean_duration_drift&quot;</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="n">metrics</span> <span class="o">=</span> <span class="n">longitudinal_metrics</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;incident_family_candidate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_family_candidate</span><span class="p">(</span>
+                <span class="n">row</span><span class="p">[</span><span class="s2">&quot;transition_instability&quot;</span><span class="p">],</span>
+                <span class="n">row</span><span class="p">[</span><span class="s2">&quot;duration_drift&quot;</span><span class="p">],</span>
+                <span class="nb">bool</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;anomaly_flag&quot;</span><span class="p">]),</span>
+            <span class="p">),</span>
+            <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">metrics</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;incident_family_candidate&quot;</span><span class="p">,</span> <span class="s2">&quot;states&quot;</span><span class="p">],</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+                <span class="n">count</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;states&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">),</span>
+                <span class="n">mean_transition_instability</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;transition_instability&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+                <span class="n">mean_duration_drift</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;duration_drift&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;states&quot;</span><span class="p">:</span> <span class="s2">&quot;signature_word&quot;</span><span class="p">})</span>
+            <span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;mean_transition_instability&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">])</span>
+        <span class="p">)</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_run_boundaries</span><span class="p">(</span><span class="n">states</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="n">pd</span><span class="o">.</span><span class="n">Index</span> <span class="o">|</span> <span class="n">pd</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute contiguous-state boundaries from a one-dimensional state series.&quot;&quot;&quot;</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">values</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">boundaries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">!=</span> <span class="n">values</span><span class="p">[</span><span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]:</span>
+                <span class="n">boundaries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="n">index</span><span class="p">))</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">index</span>
+        <span class="n">boundaries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">boundaries</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_active_sequence</span><span class="p">(</span><span class="n">runs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StateRun</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ActiveSequence</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble one active sequence from a list of non-zero runs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ActiveSequence</span><span class="p">(</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">runs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="n">runs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">end_time</span><span class="p">,</span>
+            <span class="n">states</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">state</span> <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">),</span>
+            <span class="n">total_duration_seconds</span><span class="o">=</span><span class="nb">sum</span><span class="p">(</span><span class="n">run</span><span class="o">.</span><span class="n">duration_seconds</span> <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">runs</span><span class="p">),</span>
+            <span class="n">run_count</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">runs</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compare_single_sequence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sequence</span><span class="p">:</span> <span class="n">ActiveSequence</span><span class="p">,</span>
+        <span class="n">references</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">NominalSequenceReference</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">anomaly_threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequenceComparison</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compare one observed sequence against the best nominal reference.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">references</span><span class="p">:</span>
+            <span class="n">anomaly_score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">SequenceComparison</span><span class="p">(</span>
+                <span class="n">observed_states</span><span class="o">=</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span>
+                <span class="n">nominal_states</span><span class="o">=</span><span class="p">(),</span>
+                <span class="n">exact_match</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">state_distance</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">),</span>
+                <span class="n">dtw_distance</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">)),</span>
+                <span class="n">duration_ratio_delta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                <span class="n">anomaly_score</span><span class="o">=</span><span class="n">anomaly_score</span><span class="p">,</span>
+                <span class="n">is_anomalous</span><span class="o">=</span><span class="n">anomaly_score</span> <span class="o">&gt;=</span> <span class="n">anomaly_threshold</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">best_reference</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+            <span class="n">references</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">reference</span><span class="p">:</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sequence_edit_distance</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="n">reference</span><span class="o">.</span><span class="n">states</span><span class="p">),</span>
+                <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_duration_ratio_delta</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">total_duration_seconds</span><span class="p">,</span> <span class="n">reference</span><span class="o">.</span><span class="n">avg_duration_seconds</span><span class="p">)),</span>
+                <span class="o">-</span><span class="n">reference</span><span class="o">.</span><span class="n">count</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">state_distance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sequence_edit_distance</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="n">best_reference</span><span class="o">.</span><span class="n">states</span><span class="p">)</span>
+        <span class="n">dtw_distance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sequence_dtw_distance</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="n">best_reference</span><span class="o">.</span><span class="n">states</span><span class="p">)</span>
+        <span class="n">duration_ratio_delta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_duration_ratio_delta</span><span class="p">(</span>
+            <span class="n">sequence</span><span class="o">.</span><span class="n">total_duration_seconds</span><span class="p">,</span>
+            <span class="n">best_reference</span><span class="o">.</span><span class="n">avg_duration_seconds</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">anomaly_score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dtw_distance</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">duration_ratio_delta</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">SequenceComparison</span><span class="p">(</span>
+            <span class="n">observed_states</span><span class="o">=</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span>
+            <span class="n">nominal_states</span><span class="o">=</span><span class="n">best_reference</span><span class="o">.</span><span class="n">states</span><span class="p">,</span>
+            <span class="n">exact_match</span><span class="o">=</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span> <span class="o">==</span> <span class="n">best_reference</span><span class="o">.</span><span class="n">states</span><span class="p">,</span>
+            <span class="n">state_distance</span><span class="o">=</span><span class="n">state_distance</span><span class="p">,</span>
+            <span class="n">dtw_distance</span><span class="o">=</span><span class="n">dtw_distance</span><span class="p">,</span>
+            <span class="n">duration_ratio_delta</span><span class="o">=</span><span class="n">duration_ratio_delta</span><span class="p">,</span>
+            <span class="n">anomaly_score</span><span class="o">=</span><span class="n">anomaly_score</span><span class="p">,</span>
+            <span class="n">is_anomalous</span><span class="o">=</span><span class="n">anomaly_score</span> <span class="o">&gt;=</span> <span class="n">anomaly_threshold</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sequence_edit_distance</span><span class="p">(</span><span class="n">observed</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">nominal</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a Levenshtein-like edit distance between two state words.&quot;&quot;&quot;</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">observed</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">nominal</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">cols</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rows</span><span class="p">)]</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+            <span class="n">distance</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">row</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">cols</span><span class="p">):</span>
+            <span class="n">distance</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">col</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">rows</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cols</span><span class="p">):</span>
+                <span class="n">substitution_cost</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">observed</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nominal</span><span class="p">[</span><span class="n">col</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">else</span> <span class="mi">1</span>
+                <span class="n">distance</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+                    <span class="n">distance</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">distance</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">distance</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">col</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">substitution_cost</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">distance</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_duration_ratio_delta</span><span class="p">(</span><span class="n">observed_seconds</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nominal_seconds</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Measure relative duration drift between observed and nominal sequence durations.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nominal_seconds</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">observed_seconds</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">((</span><span class="n">observed_seconds</span> <span class="o">-</span> <span class="n">nominal_seconds</span><span class="p">)</span> <span class="o">/</span> <span class="n">nominal_seconds</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sequence_dtw_distance</span><span class="p">(</span><span class="n">observed</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">nominal</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a simple DTW-inspired mismatch score between state words.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">observed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">nominal</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">observed</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">nominal</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">observed</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">nominal</span><span class="p">)))</span>
+
+        <span class="n">rows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">observed</span><span class="p">)</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">nominal</span><span class="p">)</span>
+        <span class="n">dtw</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)]</span> <span class="o">*</span> <span class="p">(</span><span class="n">cols</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rows</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+        <span class="n">dtw</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">rows</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cols</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">cost</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">observed</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nominal</span><span class="p">[</span><span class="n">col</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">else</span> <span class="mf">1.0</span>
+                <span class="n">dtw</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span>
+                    <span class="n">dtw</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">col</span><span class="p">],</span>
+                    <span class="n">dtw</span><span class="p">[</span><span class="n">row</span><span class="p">][</span><span class="n">col</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
+                    <span class="n">dtw</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">col</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">dtw</span><span class="p">[</span><span class="n">rows</span><span class="p">][</span><span class="n">cols</span><span class="p">])</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sequence_persistence_ratio</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="n">ActiveSequence</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Estimate persistence as duration per contributing run.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sequence</span><span class="o">.</span><span class="n">run_count</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">total_duration_seconds</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">run_count</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_over_activation_rate</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="n">ActiveSequence</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Estimate how densely a sequence reuses active states.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="n">active_runs</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">sequence</span><span class="o">.</span><span class="n">states</span> <span class="k">if</span> <span class="n">state</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">unique_states</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">active_runs</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">unique_states</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transition_instability</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sequence</span><span class="p">:</span> <span class="n">ActiveSequence</span><span class="p">,</span>
+        <span class="n">previous_sequence</span><span class="p">:</span> <span class="n">ActiveSequence</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Quantify state-word change against the immediately previous sequence.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">previous_sequence</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sequence_edit_distance</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">,</span> <span class="n">previous_sequence</span><span class="o">.</span><span class="n">states</span><span class="p">)</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">states</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">previous_sequence</span><span class="o">.</span><span class="n">states</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">distance</span> <span class="o">/</span> <span class="n">scale</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rolling_divergence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">],</span>
+        <span class="n">references</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">NominalSequenceReference</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">anomaly_threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Average recent anomaly scores over a rolling sequence window.&quot;&quot;&quot;</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span> <span class="o">-</span> <span class="n">window</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compare_single_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="n">references</span><span class="p">,</span> <span class="n">anomaly_threshold</span><span class="o">=</span><span class="n">anomaly_threshold</span><span class="p">)</span><span class="o">.</span><span class="n">anomaly_score</span>
+            <span class="k">for</span> <span class="n">sequence</span> <span class="ow">in</span> <span class="n">sequences</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">scores</span><span class="p">))</span> <span class="k">if</span> <span class="n">scores</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_find_previous_same_sequence</span><span class="p">(</span><span class="n">sequences</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ActiveSequence</span><span class="p">],</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ActiveSequence</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the most recent prior sequence with the same state word.&quot;&quot;&quot;</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">sequences</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">previous_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">sequences</span><span class="p">[</span><span class="n">previous_index</span><span class="p">]</span><span class="o">.</span><span class="n">states</span> <span class="o">==</span> <span class="n">current</span><span class="o">.</span><span class="n">states</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">sequences</span><span class="p">[</span><span class="n">previous_index</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_infer_family_candidate</span><span class="p">(</span>
+        <span class="n">transition_instability</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">duration_drift</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">anomaly_flag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map sequence-level metrics into a coarse family candidate.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">anomaly_flag</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;nominal_cycle&quot;</span>
+        <span class="k">if</span> <span class="n">transition_instability</span> <span class="o">&gt;=</span> <span class="mf">0.7</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;recurrent_spurious_cycle&quot;</span>
+        <span class="k">if</span> <span class="n">duration_drift</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;process_saturation&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;pump_abrupt_failure&quot;</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Model_C API &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e92c8fc6" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Model_D API" href="model_d.html" />
+    <link rel="prev" title="Model_B API" href="model_b.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="model-c-api">
+<h1>Model_C API<a class="headerlink" href="#model-c-api" title="Link to this heading">¶</a></h1>
+<section id="package-iabm-semantics">
+<h2>Package <code class="docutils literal notranslate"><span class="pre">iabm_semantics</span></code><a class="headerlink" href="#package-iabm-semantics" title="Link to this heading">¶</a></h2>
+<p>Public package surface for Model_C semantic interpretation.</p>
+<p>The package exports only the typed semantic interpreter and its rule and output
+structures so downstream incident-processing layers can rely on a stable
+semantic contract.</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">iabm_semantics.</span></span><span class="sig-name descname"><span class="pre">SemanticAssignment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence_states</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operating_mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">semantic_status</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anomaly_score</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">incident_family</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reliability_interpretation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">life_regime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recovery_regime</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticAssignment"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Row-level semantic interpretation emitted for one behavioral sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequence_states</strong> (<em>tuple</em><em>[</em><em>int</em><em>, </em><em>...</em><em>]</em>) – </p></li>
+<li><p><strong>components</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>) – </p></li>
+<li><p><strong>operating_mode</strong> (<em>str</em>) – </p></li>
+<li><p><strong>working_mode</strong> (<em>str</em>) – </p></li>
+<li><p><strong>semantic_status</strong> (<em>str</em>) – </p></li>
+<li><p><strong>anomaly_score</strong> (<em>float</em><em> | </em><em>None</em>) – </p></li>
+<li><p><strong>incident_family</strong> (<em>str</em>) – </p></li>
+<li><p><strong>reliability_interpretation</strong> (<em>str</em>) – </p></li>
+<li><p><strong>life_regime</strong> (<em>str</em>) – </p></li>
+<li><p><strong>recovery_regime</strong> (<em>str</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">sequence_states</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">components</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">operating_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">working_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">semantic_status</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">anomaly_score</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">incident_family</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">reliability_interpretation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">life_regime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">recovery_regime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">iabm_semantics.</span></span><span class="sig-name descname"><span class="pre">SemanticModeInterpreter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">component_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rules</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interpret Model_B sequences as semantic and reliability-oriented labels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>component_map</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><em>str</em><em>] </em><em>| </em><em>None</em>) – Optional override for the bitmask-to-component mapping.</p></li>
+<li><p><strong>rules</strong> (<em>Iterable</em><em>[</em><a class="reference internal" href="#iabm_semantics.semantics.SemanticRule" title="iabm_semantics.semantics.SemanticRule"><em>SemanticRule</em></a><em>] </em><em>| </em><em>None</em>) – Optional declarative semantic rules evaluated before heuristics.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The interpreter first applies explicit rules, then falls back to compact
+heuristic logic. This makes it easy to start from transparent defaults
+while still supporting future domain-specific rule injections.</p>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">load_active_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.load_active_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Load a Model_B sequence report from parquet, Excel, or CSV.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em><em> | </em><em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">load_comparison_report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.load_comparison_report"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Load a comparison report using the same tabular backends as sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em><em> | </em><em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">load_rules</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.load_rules"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Load declarative semantic rules from JSON.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em><em> | </em><em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#iabm_semantics.semantics.SemanticRule" title="iabm_semantics.semantics.SemanticRule"><em>SemanticRule</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">interpret_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequences</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparison</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.interpret_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Interpret every behavioral sequence row into semantic and family labels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequences</strong> (<em>DataFrame</em>) – Model_B active-sequence dataframe.</p></li>
+<li><p><strong>comparison</strong> (<em>DataFrame</em><em> | </em><em>None</em>) – Optional anomaly comparison dataframe aligned row-wise.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One row per input sequence with semantic, reliability, and family
+fields required by downstream incident processing.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The current implementation aligns comparison rows by positional
+order. That contract is acceptable because the repository pipeline
+generates both tables from the same ordered sequence export.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">summarize_modes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assignments</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.summarize_modes"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Aggregate semantic assignments by mode, status, family, and life regime.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>assignments</strong> (<em>DataFrame</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">summarize_life_regimes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assignments</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.summarize_life_regimes"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Aggregate assignments by family, life regime, and recovery regime.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>assignments</strong> (<em>DataFrame</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">iabm_semantics.</span></span><span class="sig-name descname"><span class="pre">SemanticRule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">required_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operating_mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_mode</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticRule"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Declarative mapping from component requirements to semantic modes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>required_components</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>) – </p></li>
+<li><p><strong>operating_mode</strong> (<em>str</em>) – </p></li>
+<li><p><strong>working_mode</strong> (<em>str</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">required_components</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">operating_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">working_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-iabm_semantics.semantics">
+<span id="semantic-interpretation"></span><h2>Semantic Interpretation<a class="headerlink" href="#module-iabm_semantics.semantics" title="Link to this heading">¶</a></h2>
+<p>Semantic interpretation utilities for Model_C.</p>
+<p>The module bridges behavioral outputs from <code class="docutils literal notranslate"><span class="pre">Model_B</span></code> and the longitudinal
+incident-processing logic in <code class="docutils literal notranslate"><span class="pre">Model_D</span></code>. It enriches raw state words with
+component semantics, operating modes, incident-family proxies, reliability
+interpretations, and life/recovery regimes.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticRule">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">iabm_semantics.semantics.</span></span><span class="sig-name descname"><span class="pre">SemanticRule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">required_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operating_mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_mode</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticRule"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticRule" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Declarative mapping from component requirements to semantic modes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>required_components</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>) – </p></li>
+<li><p><strong>operating_mode</strong> (<em>str</em>) – </p></li>
+<li><p><strong>working_mode</strong> (<em>str</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticRule.required_components">
+<span class="sig-name descname"><span class="pre">required_components</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticRule.required_components" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticRule.operating_mode">
+<span class="sig-name descname"><span class="pre">operating_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticRule.operating_mode" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticRule.working_mode">
+<span class="sig-name descname"><span class="pre">working_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticRule.working_mode" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">iabm_semantics.semantics.</span></span><span class="sig-name descname"><span class="pre">SemanticAssignment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence_states</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operating_mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">semantic_status</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anomaly_score</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">incident_family</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reliability_interpretation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">life_regime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recovery_regime</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticAssignment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Row-level semantic interpretation emitted for one behavioral sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequence_states</strong> (<em>tuple</em><em>[</em><em>int</em><em>, </em><em>...</em><em>]</em>) – </p></li>
+<li><p><strong>components</strong> (<em>tuple</em><em>[</em><em>str</em><em>, </em><em>...</em><em>]</em>) – </p></li>
+<li><p><strong>operating_mode</strong> (<em>str</em>) – </p></li>
+<li><p><strong>working_mode</strong> (<em>str</em>) – </p></li>
+<li><p><strong>semantic_status</strong> (<em>str</em>) – </p></li>
+<li><p><strong>anomaly_score</strong> (<em>float</em><em> | </em><em>None</em>) – </p></li>
+<li><p><strong>incident_family</strong> (<em>str</em>) – </p></li>
+<li><p><strong>reliability_interpretation</strong> (<em>str</em>) – </p></li>
+<li><p><strong>life_regime</strong> (<em>str</em>) – </p></li>
+<li><p><strong>recovery_regime</strong> (<em>str</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.sequence_states">
+<span class="sig-name descname"><span class="pre">sequence_states</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.sequence_states" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.components">
+<span class="sig-name descname"><span class="pre">components</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.components" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.operating_mode">
+<span class="sig-name descname"><span class="pre">operating_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.operating_mode" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.working_mode">
+<span class="sig-name descname"><span class="pre">working_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.working_mode" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.semantic_status">
+<span class="sig-name descname"><span class="pre">semantic_status</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.semantic_status" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.anomaly_score">
+<span class="sig-name descname"><span class="pre">anomaly_score</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.anomaly_score" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.incident_family">
+<span class="sig-name descname"><span class="pre">incident_family</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.incident_family" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.reliability_interpretation">
+<span class="sig-name descname"><span class="pre">reliability_interpretation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.reliability_interpretation" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.life_regime">
+<span class="sig-name descname"><span class="pre">life_regime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.life_regime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticAssignment.recovery_regime">
+<span class="sig-name descname"><span class="pre">recovery_regime</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#iabm_semantics.semantics.SemanticAssignment.recovery_regime" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">iabm_semantics.semantics.</span></span><span class="sig-name descname"><span class="pre">SemanticModeInterpreter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">component_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rules</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Interpret Model_B sequences as semantic and reliability-oriented labels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>component_map</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><em>str</em><em>] </em><em>| </em><em>None</em>) – Optional override for the bitmask-to-component mapping.</p></li>
+<li><p><strong>rules</strong> (<em>Iterable</em><em>[</em><a class="reference internal" href="#iabm_semantics.semantics.SemanticRule" title="iabm_semantics.semantics.SemanticRule"><em>SemanticRule</em></a><em>] </em><em>| </em><em>None</em>) – Optional declarative semantic rules evaluated before heuristics.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The interpreter first applies explicit rules, then falls back to compact
+heuristic logic. This makes it easy to start from transparent defaults
+while still supporting future domain-specific rule injections.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter.load_active_sequences">
+<span class="sig-name descname"><span class="pre">load_active_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.load_active_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter.load_active_sequences" title="Link to this definition">¶</a></dt>
+<dd><p>Load a Model_B sequence report from parquet, Excel, or CSV.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em><em> | </em><em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter.load_comparison_report">
+<span class="sig-name descname"><span class="pre">load_comparison_report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.load_comparison_report"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter.load_comparison_report" title="Link to this definition">¶</a></dt>
+<dd><p>Load a comparison report using the same tabular backends as sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em><em> | </em><em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter.load_rules">
+<span class="sig-name descname"><span class="pre">load_rules</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.load_rules"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter.load_rules" title="Link to this definition">¶</a></dt>
+<dd><p>Load declarative semantic rules from JSON.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em><em> | </em><em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#iabm_semantics.semantics.SemanticRule" title="iabm_semantics.semantics.SemanticRule"><em>SemanticRule</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter.interpret_sequences">
+<span class="sig-name descname"><span class="pre">interpret_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequences</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comparison</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.interpret_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter.interpret_sequences" title="Link to this definition">¶</a></dt>
+<dd><p>Interpret every behavioral sequence row into semantic and family labels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequences</strong> (<em>DataFrame</em>) – Model_B active-sequence dataframe.</p></li>
+<li><p><strong>comparison</strong> (<em>DataFrame</em><em> | </em><em>None</em>) – Optional anomaly comparison dataframe aligned row-wise.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One row per input sequence with semantic, reliability, and family
+fields required by downstream incident processing.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The current implementation aligns comparison rows by positional
+order. That contract is acceptable because the repository pipeline
+generates both tables from the same ordered sequence export.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter.summarize_modes">
+<span class="sig-name descname"><span class="pre">summarize_modes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assignments</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.summarize_modes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter.summarize_modes" title="Link to this definition">¶</a></dt>
+<dd><p>Aggregate semantic assignments by mode, status, family, and life regime.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>assignments</strong> (<em>DataFrame</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="iabm_semantics.semantics.SemanticModeInterpreter.summarize_life_regimes">
+<span class="sig-name descname"><span class="pre">summarize_life_regimes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assignments</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/semantics.html#SemanticModeInterpreter.summarize_life_regimes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.semantics.SemanticModeInterpreter.summarize_life_regimes" title="Link to this definition">¶</a></dt>
+<dd><p>Aggregate assignments by family, life regime, and recovery regime.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>assignments</strong> (<em>DataFrame</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-iabm_semantics.main">
+<span id="command-line-interface"></span><h2>Command-Line Interface<a class="headerlink" href="#module-iabm_semantics.main" title="Link to this heading">¶</a></h2>
+<p>Command-line entry point for Model_C semantic interpretation.</p>
+<p>The CLI converts behavioral outputs from <code class="docutils literal notranslate"><span class="pre">Model_B</span></code> into semantic and
+reliability-oriented labels that downstream incident processing can consume.
+It supports optional anomaly-context enrichment through Model_B comparison
+reports and keeps reporting concerns isolated from the interpreter itself.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="iabm_semantics.main.parse_arguments">
+<span class="sig-prename descclassname"><span class="pre">iabm_semantics.main.</span></span><span class="sig-name descname"><span class="pre">parse_arguments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">translator</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/main.html#parse_arguments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.main.parse_arguments" title="Link to this definition">¶</a></dt>
+<dd><p>Build the CLI parser for semantic interpretation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>translator</strong> (<em>Callable</em><em>[</em><em>[</em><em>str</em><em>]</em><em>, </em><em>str</em><em>]</em>) – Translation function used for localized help strings.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Parsed command-line arguments for input selection, optional custom rule
+injection, and output formatting.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Namespace</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="iabm_semantics.main.main">
+<span class="sig-prename descclassname"><span class="pre">iabm_semantics.main.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/main.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.main.main" title="Link to this definition">¶</a></dt>
+<dd><p>Run semantic interpretation and persist the resulting reports.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">None</span></code>. Output artefacts are written into the selected directory.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The CLI emits both a row-level assignment table and multiple summary
+views because downstream layers often require different semantic slices:
+one for per-sequence incident-family alignment and another for broader
+operating-mode and life-regime analysis.</p>
+</dd></dl>
+
+</section>
+<section id="module-iabm_semantics.utils">
+<span id="utilities"></span><h2>Utilities<a class="headerlink" href="#module-iabm_semantics.utils" title="Link to this heading">¶</a></h2>
+<p>Internationalization helpers for the Model_C command-line interface.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="iabm_semantics.utils.setup_i18n">
+<span class="sig-prename descclassname"><span class="pre">iabm_semantics.utils.</span></span><span class="sig-name descname"><span class="pre">setup_i18n</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lang</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'en'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/iabm_semantics/utils.html#setup_i18n"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#iabm_semantics.utils.setup_i18n" title="Link to this definition">¶</a></dt>
+<dd><p>Return a translation function for the requested interface language.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>lang</strong> (<em>str</em>) – ISO language code requested by the caller.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A callable that translates user-facing CLI strings into the requested
+language, falling back to the original message when no translation
+exists.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Callable</em>[[str], str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_b.html">Model_B API</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Model_C API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#package-iabm-semantics">Package <code class="docutils literal notranslate"><span class="pre">iabm_semantics</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-iabm_semantics.semantics">Semantic Interpretation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-iabm_semantics.main">Command-Line Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-iabm_semantics.utils">Utilities</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="model_b.html" title="previous chapter">Model_B API</a></li>
+      <li>Next: <a href="model_d.html" title="next chapter">Model_D API</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/model_c.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

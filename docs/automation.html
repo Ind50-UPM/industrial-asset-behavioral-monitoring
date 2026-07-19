@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Automation and Batch Runs &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e92c8fc6" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Incident Taxonomy" href="incident_taxonomy.html" />
+    <link rel="prev" title="Architecture" href="architecture.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="automation-and-batch-runs">
+<h1>Automation and Batch Runs<a class="headerlink" href="#automation-and-batch-runs" title="Link to this heading">¶</a></h1>
+<p>The repository includes dedicated batch utilities to process month-wise parquet
+campaigns without forcing monolithic runs over the full historical archive.</p>
+<section id="module-generate_model_bc_batch">
+<span id="batch-utilities"></span><h2>Batch Utilities<a class="headerlink" href="#module-generate_model_bc_batch" title="Link to this heading">¶</a></h2>
+<p>Run Model_B and Model_C month by month from estados_nonans parquet and consolidate outputs.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.parse_args">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#parse_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.parse_args" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Namespace</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.collect_months">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">collect_months</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">states_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#collect_months"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.collect_months" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>states_path</strong> (<em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.load_month_timeline">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">load_month_timeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">states_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">month</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_column</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#load_month_timeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.load_month_timeline" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>states_path</strong> (<em>Path</em>) – </p></li>
+<li><p><strong>month</strong> (<em>str</em>) – </p></li>
+<li><p><strong>state_column</strong> (<em>str</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.active_sequences_to_frame">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">active_sequences_to_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequences</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#active_sequences_to_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.active_sequences_to_frame" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sequences</strong> (<em>list</em><em>[</em><em>ActiveSequence</em><em>]</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.runs_to_frame">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">runs_to_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#runs_to_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.runs_to_frame" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>runs</strong> (<em>list</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.consolidate_csvs">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">consolidate_csvs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">paths</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#consolidate_csvs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.consolidate_csvs" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>paths</strong> (<em>list</em><em>[</em><em>Path</em><em>]</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.build_nominal_lookup">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">build_nominal_lookup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequences</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#build_nominal_lookup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.build_nominal_lookup" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sequences</strong> (<em>list</em><em>[</em><em>ActiveSequence</em><em>]</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[tuple[int, …], tuple[int, float]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.fast_compare_to_nominal">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">fast_compare_to_nominal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequences</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nominal_lookup</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anomaly_threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#fast_compare_to_nominal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.fast_compare_to_nominal" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequences</strong> (<em>list</em><em>[</em><em>ActiveSequence</em><em>]</em>) – </p></li>
+<li><p><strong>nominal_lookup</strong> (<em>dict</em><em>[</em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>...</em><em>]</em><em>, </em><em>tuple</em><em>[</em><em>int</em><em>, </em><em>float</em><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>anomaly_threshold</strong> (<em>float</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.frame_to_active_sequences">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">frame_to_active_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#frame_to_active_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.frame_to_active_sequences" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>frame</strong> (<em>DataFrame</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<em>ActiveSequence</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_model_bc_batch.main">
+<span class="sig-prename descclassname"><span class="pre">generate_model_bc_batch.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_model_bc_batch.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_model_bc_batch.main" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p id="module-generate_candidate_incident_registry_batch">Generate candidate incident registries month by month and consolidate the outputs.</p>
+<p>This utility exists to make large-scale incident-registry generation robust on
+historical industrial campaigns where full-table in-memory runs may be too slow
+or too fragile. It processes each <code class="docutils literal notranslate"><span class="pre">source_month</span></code> independently, persists a
+monthly artifact, records traceability in a manifest, and finally produces a
+consolidated flat-file registry consumed by downstream analysis steps.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.parse_args">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#parse_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.parse_args" title="Link to this definition">¶</a></dt>
+<dd><p>Parse command-line arguments for batch candidate-registry generation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Parsed command-line arguments describing input parquet locations,
+optional month filters, and output behavior.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Namespace</em></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The CLI is intentionally restart-friendly. <code class="docutils literal notranslate"><span class="pre">--skip-existing-months</span></code>
+allows long campaigns to resume from already written monthly parquet
+artifacts without recomputing earlier months.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.collect_months">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">collect_months</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">states_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequences_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">words_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#collect_months"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.collect_months" title="Link to this definition">¶</a></dt>
+<dd><p>Collect every <code class="docutils literal notranslate"><span class="pre">source_month</span></code> available across the three parquet inputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>states_path</strong> (<em>Path</em>) – Path to the state-history parquet.</p></li>
+<li><p><strong>sequences_path</strong> (<em>Path</em>) – Path to the sequence-history parquet.</p></li>
+<li><p><strong>words_path</strong> (<em>Path</em>) – Path to the sequence-word parquet.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sorted month identifiers detected across the available sources.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The union of all months is used so that installation stops or partially
+missing exports can still be represented in the manifest as empty months
+rather than silently disappearing from the orchestration layer.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.load_month_frame">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">load_month_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parquet_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">month</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#load_month_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.load_month_frame" title="Link to this definition">¶</a></dt>
+<dd><p>Load a single month slice from a parquet file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parquet_path</strong> (<em>Path</em>) – Parquet file containing a <code class="docutils literal notranslate"><span class="pre">source_month</span></code> column.</p></li>
+<li><p><strong>month</strong> (<em>str</em>) – Month identifier to filter.</p></li>
+<li><p><strong>columns</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>None</em>) – Optional column projection to reduce I/O and memory.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A month-filtered dataframe, or an empty frame if the parquet is absent.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.build_month_registry">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">build_month_registry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">builder</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">month</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">states_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequences_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">words_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#build_month_registry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.build_month_registry" title="Link to this definition">¶</a></dt>
+<dd><p>Build the weakly labeled registry for a single month.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>builder</strong> (<em>CandidateIncidentRegistryBuilder</em>) – Configured builder implementing the heuristic incident logic.</p></li>
+<li><p><strong>month</strong> (<em>str</em>) – Month identifier being processed.</p></li>
+<li><p><strong>states_path</strong> (<em>Path</em>) – Monthly source of state and power telemetry.</p></li>
+<li><p><strong>sequences_path</strong> (<em>Path</em>) – Monthly source of state-run sequence summaries.</p></li>
+<li><p><strong>words_path</strong> (<em>Path</em>) – Monthly source of sequence-word summaries.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A tuple containing the month registry and basic input row counts.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[<em>DataFrame</em>, dict[str, int]]</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The returned counts are written to the manifest so operational users can
+later distinguish empty installations from failed computation.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.consolidate_registries">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">consolidate_registries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">monthly_paths</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#consolidate_registries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.consolidate_registries" title="Link to this definition">¶</a></dt>
+<dd><p>Concatenate monthly registry parquet artifacts into one flat dataframe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>monthly_paths</strong> (<em>list</em><em>[</em><em>Path</em><em>]</em>) – Paths to monthly parquet files written during the batch.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A consolidated registry sorted by <code class="docutils literal notranslate"><span class="pre">event_time</span></code> and reindexed with a
+fresh, sequential <code class="docutils literal notranslate"><span class="pre">incident_id</span></code> namespace.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Incident identifiers are reassigned after concatenation so the final
+registry is deterministic regardless of whether some months were reused,
+skipped, or regenerated.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.write_summary">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">write_summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#write_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.write_summary" title="Link to this definition">¶</a></dt>
+<dd><p>Write the final family/source summary for the consolidated registry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>registry</strong> (<em>DataFrame</em>) – Consolidated candidate incident registry.</p></li>
+<li><p><strong>summary_path</strong> (<em>Path</em>) – Destination CSV path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">None</span></code>. The summary is persisted to disk.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="generate_candidate_incident_registry_batch.main">
+<span class="sig-prename descclassname"><span class="pre">generate_candidate_incident_registry_batch.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/generate_candidate_incident_registry_batch.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#generate_candidate_incident_registry_batch.main" title="Link to this definition">¶</a></dt>
+<dd><p>Execute the month-wise candidate-registry orchestration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Process-style exit code where <code class="docutils literal notranslate"><span class="pre">0</span></code> means successful completion and
+<code class="docutils literal notranslate"><span class="pre">1</span></code> indicates missing inputs or at least one failed month.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The function is intentionally verbose in its artifact writing:
+monthly parquet files, a manifest CSV, a metadata JSON file, the
+consolidated registry, and the consolidated summary are all written so
+long historical campaigns remain auditable and restartable.</p>
+</dd></dl>
+
+<p id="module-concat_monthly_csv_to_parquet">Concatenate monthly CSV datasets and export one Parquet file per CSV type.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="concat_monthly_csv_to_parquet.parse_args">
+<span class="sig-prename descclassname"><span class="pre">concat_monthly_csv_to_parquet.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/concat_monthly_csv_to_parquet.html#parse_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#concat_monthly_csv_to_parquet.parse_args" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Namespace</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="concat_monthly_csv_to_parquet.discover_month_dirs">
+<span class="sig-prename descclassname"><span class="pre">concat_monthly_csv_to_parquet.</span></span><span class="sig-name descname"><span class="pre">discover_month_dirs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/concat_monthly_csv_to_parquet.html#discover_month_dirs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#concat_monthly_csv_to_parquet.discover_month_dirs" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data_dir</strong> (<em>Path</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<em>Path</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="concat_monthly_csv_to_parquet.collect_existing_files">
+<span class="sig-prename descclassname"><span class="pre">concat_monthly_csv_to_parquet.</span></span><span class="sig-name descname"><span class="pre">collect_existing_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">month_dirs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/concat_monthly_csv_to_parquet.html#collect_existing_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#concat_monthly_csv_to_parquet.collect_existing_files" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>month_dirs</strong> (<em>list</em><em>[</em><em>Path</em><em>]</em>) – </p></li>
+<li><p><strong>filename</strong> (<em>str</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<em>Path</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="concat_monthly_csv_to_parquet.load_and_concat">
+<span class="sig-prename descclassname"><span class="pre">concat_monthly_csv_to_parquet.</span></span><span class="sig-name descname"><span class="pre">load_and_concat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_paths</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_source_month</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/concat_monthly_csv_to_parquet.html#load_and_concat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#concat_monthly_csv_to_parquet.load_and_concat" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>csv_paths</strong> (<em>list</em><em>[</em><em>Path</em><em>]</em>) – </p></li>
+<li><p><strong>include_source_month</strong> (<em>bool</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="concat_monthly_csv_to_parquet.parquet_name_for">
+<span class="sig-prename descclassname"><span class="pre">concat_monthly_csv_to_parquet.</span></span><span class="sig-name descname"><span class="pre">parquet_name_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/concat_monthly_csv_to_parquet.html#parquet_name_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#concat_monthly_csv_to_parquet.parquet_name_for" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>filename</strong> (<em>str</em>) – </p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="concat_monthly_csv_to_parquet.main">
+<span class="sig-prename descclassname"><span class="pre">concat_monthly_csv_to_parquet.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/concat_monthly_csv_to_parquet.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#concat_monthly_csv_to_parquet.main" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="operational-sequence">
+<h2>Operational Sequence<a class="headerlink" href="#operational-sequence" title="Link to this heading">¶</a></h2>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant BatchBC as Batch Model_B/Model_C
+    participant BatchReg as Candidate Registry Batch
+    participant ModelD as Model_D CLI
+
+    User->>BatchBC: launch month-wise sequence and semantic generation
+    BatchBC-->>User: consolidated active sequences and semantic assignments
+    User->>BatchReg: launch candidate incident registry generation
+    BatchReg-->>User: consolidated registry candidates and manifests
+    User->>ModelD: run final longitudinal incident processing
+    ModelD-->>User: episodes, occurrence summaries, evaluation artifacts</pre></section>
+<section id="batch-artefacts">
+<h2>Batch Artefacts<a class="headerlink" href="#batch-artefacts" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Monthly outputs preserve partial progress and simplify restart after interruptions.</p></li>
+<li><p>Manifest files expose which months were processed, empty, reused, or failed.</p></li>
+<li><p>Consolidated outputs provide the flat files consumed by downstream models and reporting layers.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Automation and Batch Runs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-generate_model_bc_batch">Batch Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#operational-sequence">Operational Sequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#batch-artefacts">Batch Artefacts</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="architecture.html" title="previous chapter">Architecture</a></li>
+      <li>Next: <a href="incident_taxonomy.html" title="next chapter">Incident Taxonomy</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/automation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Reproducibility &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e92c8fc6" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Semantic Schema" href="semantic_schema.html" />
+    <link rel="prev" title="Reliability-Informed Interpretation" href="reliability_interpretation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="reproducibility">
+<h1>Reproducibility<a class="headerlink" href="#reproducibility" title="Link to this heading">¶</a></h1>
+<p>This repository implements a layered workflow for industrial asset behavioral
+monitoring based on operational-state inference, behavioral sequence analysis,
+semantic contextualization, and longitudinal incident processing. It accompanies
+research work on industrial asset monitoring in IIoT-enabled environments where
+direct reliability labels may be sparse or incomplete.</p>
+<section id="repository-architecture">
+<h2>Repository Architecture<a class="headerlink" href="#repository-architecture" title="Link to this heading">¶</a></h2>
+<p>The implementation is organized into four package-oriented modeling layers.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">Model_A</span></code></dt><dd><p>Package: <code class="docutils literal notranslate"><span class="pre">iabm</span></code></p>
+<p>Purpose: supervised identification of elementary operating states from
+industrial analog and digital signals.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">Model_B</span></code></dt><dd><p>Package: <code class="docutils literal notranslate"><span class="pre">iabm_behavior</span></code></p>
+<p>Purpose: extraction of contiguous runs, active sequences, nominal behavioral
+references, and longitudinal comparison metrics.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">Model_C</span></code></dt><dd><p>Package: <code class="docutils literal notranslate"><span class="pre">iabm_semantics</span></code></p>
+<p>Purpose: semantic and reliability-informed interpretation of behavioral
+sequences into operating modes, working modes, and incident-family-aware
+assignments.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">Model_D</span></code></dt><dd><p>Package: <code class="docutils literal notranslate"><span class="pre">iabm_incidents</span></code></p>
+<p>Purpose: explicit scoring, segmentation, family assignment, recovery
+assessment, registry alignment, and occurrence summaries for longitudinal
+episodes.</p>
+</dd>
+</dl>
+</section>
+<section id="layered-workflow">
+<h2>Layered Workflow<a class="headerlink" href="#layered-workflow" title="Link to this heading">¶</a></h2>
+<p>The repository supports a progressive analysis workflow:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_A</span></code> transforms synchronized industrial observations into discrete operating-state predictions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_B</span></code> organizes those predicted states into runs and behavioral sequences and estimates divergence-oriented longitudinal indicators.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_C</span></code> interprets the extracted behavioral sequences through higher-level semantic categories such as operating modes, working modes, and incident families.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Model_D</span></code> converts those sequence and semantic outputs into scored windows, detected episodes, recovery assessments, and registry-aware evaluation tables.</p></li>
+</ol>
+</section>
+<section id="reproducible-model-d-assets">
+<h2>Reproducible Model_D assets<a class="headerlink" href="#reproducible-model-d-assets" title="Link to this heading">¶</a></h2>
+<p>The current repository now includes reproducibility-oriented assets for the
+longitudinal layer:</p>
+<ul class="simple">
+<li><p>a typed configuration system in <code class="docutils literal notranslate"><span class="pre">iabm_incidents.config</span></code>;</p></li>
+<li><p>a versionable example configuration file at <code class="docutils literal notranslate"><span class="pre">src/Model_D/configs/model_d.example.json</span></code>;</p></li>
+<li><p>metadata export through <code class="docutils literal notranslate"><span class="pre">model_d_run_metadata.json</span></code>;</p></li>
+<li><p>synthetic tests covering configuration loading, CLI execution, episode construction, occurrence summaries, and evaluation baselines.</p></li>
+</ul>
+</section>
+<section id="recommended-execution-pattern-for-model-d">
+<h2>Recommended execution pattern for Model_D<a class="headerlink" href="#recommended-execution-pattern-for-model-d" title="Link to this heading">¶</a></h2>
+<p>For reproducible longitudinal runs, the recommended invocation pattern is:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>poetry<span class="w"> </span>run<span class="w"> </span>industrial-incidents<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>configs/model_d.example.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--sequences<span class="w"> </span>path/to/active_sequences.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--assignments<span class="w"> </span>path/to/window_indicators.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--registry<span class="w"> </span>path/to/incident_registry.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-dir<span class="w"> </span>outputs/model_d<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-format<span class="w"> </span>csv
+</pre></div>
+</div>
+<p>This keeps threshold choices, weighting assumptions, and output artifacts fully
+traceable.</p>
+</section>
+<section id="relation-to-the-paper">
+<h2>Relation to the Paper<a class="headerlink" href="#relation-to-the-paper" title="Link to this heading">¶</a></h2>
+<p>The repository mirrors the main empirical workflow reported in the manuscript.</p>
+<ul class="simple">
+<li><p>Data preprocessing and state-identification tasks are associated with <code class="docutils literal notranslate"><span class="pre">Model_A</span></code>.</p></li>
+<li><p>Behavioral sequence extraction and longitudinal comparison are associated with <code class="docutils literal notranslate"><span class="pre">Model_B</span></code>.</p></li>
+<li><p>Semantic contextualization and family-oriented interpretation are associated with <code class="docutils literal notranslate"><span class="pre">Model_C</span></code>.</p></li>
+<li><p>Episode-oriented validation and recurrence analysis are associated with <code class="docutils literal notranslate"><span class="pre">Model_D</span></code>.</p></li>
+</ul>
+<p>The public codebase is therefore not only a software artifact, but also a
+reproducibility resource for the experimental pipeline discussed in the paper.</p>
+</section>
+<section id="where-to-start">
+<h2>Where to Start<a class="headerlink" href="#where-to-start" title="Link to this heading">¶</a></h2>
+<p>For most users, the recommended reading order is:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="overview.html"><span class="doc">Overview</span></a></p></li>
+<li><p><a class="reference internal" href="model_a.html"><span class="doc">Model_A API</span></a></p></li>
+<li><p><a class="reference internal" href="model_b.html"><span class="doc">Model_B API</span></a></p></li>
+<li><p><a class="reference internal" href="model_c.html"><span class="doc">Model_C API</span></a></p></li>
+<li><p><a class="reference internal" href="model_d.html"><span class="doc">Model_D API</span></a></p></li>
+</ul>
+</section>
+<section id="documentation-strategy">
+<h2>Documentation Strategy<a class="headerlink" href="#documentation-strategy" title="Link to this heading">¶</a></h2>
+<p>This Sphinx configuration relies on <code class="docutils literal notranslate"><span class="pre">autodoc</span></code> and <code class="docutils literal notranslate"><span class="pre">napoleon</span></code> so that
+Google-style docstrings embedded in the codebase become the primary API
+reference. The intent is to keep implementation and formal documentation
+synchronized while providing an accessible entry point to the structure and
+purpose of the repository.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Reproducibility</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#repository-architecture">Repository Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#layered-workflow">Layered Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reproducible-model-d-assets">Reproducible Model_D assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#recommended-execution-pattern-for-model-d">Recommended execution pattern for Model_D</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#relation-to-the-paper">Relation to the Paper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#where-to-start">Where to Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#documentation-strategy">Documentation Strategy</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="reliability_interpretation.html" title="previous chapter">Reliability-Informed Interpretation</a></li>
+      <li>Next: <a href="semantic_schema.html" title="next chapter">Semantic Schema</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/reproducibility.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

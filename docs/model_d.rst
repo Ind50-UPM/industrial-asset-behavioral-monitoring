@@ -1,0 +1,140 @@
+Model_D API
+===========
+
+Model_D now exposes a phase-1 modular architecture for incident processing. The
+current implementation already separates detection, segmentation, classification,
+recovery assessment, registry evaluation, and exposure-aware occurrence summaries, while
+supporting both true rolling-window detection from timed rows and backward-compatible
+processing of pre-windowed indicator tables.
+
+It also supports the expected operational input format for the next phase: a
+single Excel workbook whose sheets contain sequence inputs, assignment inputs,
+and the canonical incident registry.
+
+Package ``iabm_incidents``
+--------------------------
+
+.. automodule:: iabm_incidents
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :no-index:
+
+Episode Construction
+--------------------
+
+.. automodule:: iabm_incidents.episodes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :no-index:
+
+Detection
+---------
+
+.. automodule:: iabm_incidents.detection
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Segmentation
+------------
+
+.. automodule:: iabm_incidents.segmentation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Classification
+--------------
+
+.. automodule:: iabm_incidents.classification
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Recovery
+--------
+
+.. automodule:: iabm_incidents.recovery
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Evaluation
+----------
+
+.. automodule:: iabm_incidents.evaluation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :no-index:
+
+Configuration
+-------------
+
+.. automodule:: iabm_incidents.config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :no-index:
+
+Incident Registry
+-----------------
+
+.. automodule:: iabm_incidents.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :no-index:
+
+Occurrence Modelling
+--------------------
+
+.. automodule:: iabm_incidents.occurrence
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Metrics
+-------
+
+.. automodule:: iabm_incidents.metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Command-Line Interface
+----------------------
+
+.. automodule:: iabm_incidents.main
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+Batch and Registry Utilities
+----------------------------
+
+.. automodule:: iabm_incidents.registry_builder
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Full-Horizon Reassessment
+-------------------------
+
+The repository includes a consolidated ``Model_D`` reassessment for the
+requested horizon from **202201** to **202606**. Final executive artifacts are
+written under ``src/predictions/Model_D/final_reassessment/`` and include an
+HTML report, mode-level and month-level CSV summaries, metadata, and an
+explicit caveat file.
+
+The current reference run processed 50 available months and explicitly marks
+missing months inside the requested horizon: ``202211``, ``202212``, ``202408``,
+and ``202506``. It also flags ``202505`` as a low-data month.
+
+For interpretation, prefer recall-oriented and temporal-overlap metrics over
+raw precision-like fields, because the current registry alignment logic can
+inflate precision through repeated matches against the same reference context.
+

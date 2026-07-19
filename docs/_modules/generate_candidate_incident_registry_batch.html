@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>generate_candidate_incident_registry_batch &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e92c8fc6" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for generate_candidate_incident_registry_batch</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Generate candidate incident registries month by month and consolidate the outputs.</span>
+
+<span class="sd">This utility exists to make large-scale incident-registry generation robust on</span>
+<span class="sd">historical industrial campaigns where full-table in-memory runs may be too slow</span>
+<span class="sd">or too fragile. It processes each ``source_month`` independently, persists a</span>
+<span class="sd">monthly artifact, records traceability in a manifest, and finally produces a</span>
+<span class="sd">consolidated flat-file registry consumed by downstream analysis steps.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="n">ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">ROOT</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">ROOT</span><span class="p">))</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">Model_D.iabm_incidents.registry_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">CandidateIncidentRegistryBuilder</span><span class="p">,</span> <span class="n">RegistryGenerationConfig</span>
+
+
+<span class="n">DEFAULT_STATES</span> <span class="o">=</span> <span class="s2">&quot;data/estados_nonans.parquet&quot;</span>
+<span class="n">DEFAULT_SEQUENCES</span> <span class="o">=</span> <span class="s2">&quot;data/secuencias.parquet&quot;</span>
+<span class="n">DEFAULT_WORDS</span> <span class="o">=</span> <span class="s2">&quot;data/palabras.parquet&quot;</span>
+<span class="n">DEFAULT_OUTPUT_DIR</span> <span class="o">=</span> <span class="s2">&quot;src/predictions/Model_D&quot;</span>
+
+
+<div class="viewcode-block" id="parse_args">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.parse_args">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_args</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse command-line arguments for batch candidate-registry generation.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Parsed command-line arguments describing input parquet locations,</span>
+<span class="sd">        optional month filters, and output behavior.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The CLI is intentionally restart-friendly. ``--skip-existing-months``</span>
+<span class="sd">        allows long campaigns to resume from already written monthly parquet</span>
+<span class="sd">        artifacts without recomputing earlier months.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Build candidate incident registries month by month from parquet inputs, &quot;</span>
+            <span class="s2">&quot;persist partial outputs, and consolidate a final registry and summary.&quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--states&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_STATES</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;States parquet path. Default: </span><span class="si">{</span><span class="n">DEFAULT_STATES</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--sequences&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_SEQUENCES</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Sequences parquet path. Default: </span><span class="si">{</span><span class="n">DEFAULT_SEQUENCES</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--words&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_WORDS</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Words parquet path. Default: </span><span class="si">{</span><span class="n">DEFAULT_WORDS</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--output-dir&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_OUTPUT_DIR</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Output directory. Default: </span><span class="si">{</span><span class="n">DEFAULT_OUTPUT_DIR</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--months&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Optional explicit source_month values to process.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--output-stem&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;candidate_incident_registry_refined&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Base name for consolidated outputs.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--keep-monthly-csv&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Also write one CSV per month in addition to monthly parquet files.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--skip-existing-months&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Reuse existing monthly parquet outputs when present.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--fail-fast&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Stop at the first month that raises an exception.&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="collect_months">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.collect_months">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_months</span><span class="p">(</span><span class="n">states_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">sequences_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">words_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Collect every ``source_month`` available across the three parquet inputs.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        states_path: Path to the state-history parquet.</span>
+<span class="sd">        sequences_path: Path to the sequence-history parquet.</span>
+<span class="sd">        words_path: Path to the sequence-word parquet.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Sorted month identifiers detected across the available sources.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The union of all months is used so that installation stops or partially</span>
+<span class="sd">        missing exports can still be represented in the manifest as empty months</span>
+<span class="sd">        rather than silently disappearing from the orchestration layer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">months</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">parquet_path</span> <span class="ow">in</span> <span class="p">[</span><span class="n">states_path</span><span class="p">,</span> <span class="n">sequences_path</span><span class="p">,</span> <span class="n">words_path</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parquet_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">parquet_path</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;source_month&#39;</span><span class="p">])</span>
+        <span class="n">months</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s1">&#39;source_month&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">months</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_month_frame">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.load_month_frame">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_month_frame</span><span class="p">(</span><span class="n">parquet_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a single month slice from a parquet file.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        parquet_path: Parquet file containing a ``source_month`` column.</span>
+<span class="sd">        month: Month identifier to filter.</span>
+<span class="sd">        columns: Optional column projection to reduce I/O and memory.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A month-filtered dataframe, or an empty frame if the parquet is absent.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">parquet_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">parquet_path</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">filters</span><span class="o">=</span><span class="p">[(</span><span class="s1">&#39;source_month&#39;</span><span class="p">,</span> <span class="s1">&#39;==&#39;</span><span class="p">,</span> <span class="n">month</span><span class="p">)])</span></div>
+
+
+
+<div class="viewcode-block" id="build_month_registry">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.build_month_registry">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_month_registry</span><span class="p">(</span>
+    <span class="n">builder</span><span class="p">:</span> <span class="n">CandidateIncidentRegistryBuilder</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">month</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">states_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">sequences_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">words_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the weakly labeled registry for a single month.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        builder: Configured builder implementing the heuristic incident logic.</span>
+<span class="sd">        month: Month identifier being processed.</span>
+<span class="sd">        states_path: Monthly source of state and power telemetry.</span>
+<span class="sd">        sequences_path: Monthly source of state-run sequence summaries.</span>
+<span class="sd">        words_path: Monthly source of sequence-word summaries.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple containing the month registry and basic input row counts.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The returned counts are written to the manifest so operational users can</span>
+<span class="sd">        later distinguish empty installations from failed computation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">states</span> <span class="o">=</span> <span class="n">load_month_frame</span><span class="p">(</span>
+        <span class="n">states_path</span><span class="p">,</span>
+        <span class="n">month</span><span class="p">,</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;source_month&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span><span class="p">,</span> <span class="s1">&#39;RP1&#39;</span><span class="p">,</span> <span class="s1">&#39;RP2&#39;</span><span class="p">,</span> <span class="s1">&#39;RP3&#39;</span><span class="p">,</span> <span class="s1">&#39;RP4&#39;</span><span class="p">,</span> <span class="s1">&#39;estado&#39;</span><span class="p">,</span> <span class="s1">&#39;pred_estado&#39;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">sequences</span> <span class="o">=</span> <span class="n">load_month_frame</span><span class="p">(</span><span class="n">sequences_path</span><span class="p">,</span> <span class="n">month</span><span class="p">)</span>
+    <span class="n">words</span> <span class="o">=</span> <span class="n">load_month_frame</span><span class="p">(</span><span class="n">words_path</span><span class="p">,</span> <span class="n">month</span><span class="p">)</span>
+
+    <span class="n">counts</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;states_rows&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">states</span><span class="p">)),</span>
+        <span class="s1">&#39;sequences_rows&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sequences</span><span class="p">)),</span>
+        <span class="s1">&#39;words_rows&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)),</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">states</span><span class="o">.</span><span class="n">empty</span> <span class="ow">and</span> <span class="n">sequences</span><span class="o">.</span><span class="n">empty</span> <span class="ow">and</span> <span class="n">words</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">builder</span><span class="o">.</span><span class="n">_empty_final_registry</span><span class="p">(),</span> <span class="n">counts</span>
+
+    <span class="n">registry</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">build_from_frames</span><span class="p">(</span><span class="n">states</span><span class="o">=</span><span class="n">states</span><span class="p">,</span> <span class="n">sequences</span><span class="o">=</span><span class="n">sequences</span><span class="p">,</span> <span class="n">words</span><span class="o">=</span><span class="n">words</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">registry</span><span class="p">,</span> <span class="n">counts</span></div>
+
+
+
+<div class="viewcode-block" id="consolidate_registries">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.consolidate_registries">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">consolidate_registries</span><span class="p">(</span><span class="n">monthly_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Concatenate monthly registry parquet artifacts into one flat dataframe.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        monthly_paths: Paths to monthly parquet files written during the batch.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A consolidated registry sorted by ``event_time`` and reindexed with a</span>
+<span class="sd">        fresh, sequential ``incident_id`` namespace.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Incident identifiers are reassigned after concatenation so the final</span>
+<span class="sd">        registry is deterministic regardless of whether some months were reused,</span>
+<span class="sd">        skipped, or regenerated.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">frames</span> <span class="o">=</span> <span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">monthly_paths</span> <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">frames</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                <span class="s1">&#39;incident_id&#39;</span><span class="p">,</span> <span class="s1">&#39;source_window_start&#39;</span><span class="p">,</span> <span class="s1">&#39;source_window_end&#39;</span><span class="p">,</span> <span class="s1">&#39;documented_start&#39;</span><span class="p">,</span> <span class="s1">&#39;documented_end&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;event_time&#39;</span><span class="p">,</span> <span class="s1">&#39;event_time_precision&#39;</span><span class="p">,</span> <span class="s1">&#39;incident_family&#39;</span><span class="p">,</span> <span class="s1">&#39;family&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_family&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;recovery_time&#39;</span><span class="p">,</span> <span class="s1">&#39;recovery_status&#39;</span><span class="p">,</span> <span class="s1">&#39;label_strength&#39;</span><span class="p">,</span> <span class="s1">&#39;source_type&#39;</span><span class="p">,</span> <span class="s1">&#39;downtime_start&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;downtime_end&#39;</span><span class="p">,</span> <span class="s1">&#39;maintenance_time&#39;</span><span class="p">,</span> <span class="s1">&#39;affected_subsystem&#39;</span><span class="p">,</span> <span class="s1">&#39;notes&#39;</span><span class="p">,</span> <span class="s1">&#39;asset_id&#39;</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+    <span class="n">full_registry</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;event_time&#39;</span> <span class="ow">in</span> <span class="n">full_registry</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">full_registry</span> <span class="o">=</span> <span class="n">full_registry</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;event_time&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">full_registry</span><span class="p">[</span><span class="s1">&#39;incident_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;AUTO-</span><span class="si">{</span><span class="n">index</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s2">06d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">full_registry</span><span class="p">))]</span>
+    <span class="k">return</span> <span class="n">full_registry</span></div>
+
+
+
+<div class="viewcode-block" id="write_summary">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.write_summary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_summary</span><span class="p">(</span><span class="n">registry</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">summary_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write the final family/source summary for the consolidated registry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        registry: Consolidated candidate incident registry.</span>
+<span class="sd">        summary_path: Destination CSV path.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ``None``. The summary is persisted to disk.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">summary</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">registry</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">&#39;incident_family&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_family&#39;</span><span class="p">,</span> <span class="s1">&#39;source_type&#39;</span><span class="p">],</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">size</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;candidate_count&#39;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s1">&#39;candidate_count&#39;</span><span class="p">,</span> <span class="s1">&#39;incident_family&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_family&#39;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">])</span>
+    <span class="p">)</span>
+    <span class="n">summary</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">summary_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../automation.html#generate_candidate_incident_registry_batch.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute the month-wise candidate-registry orchestration.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Process-style exit code where ``0`` means successful completion and</span>
+<span class="sd">        ``1`` indicates missing inputs or at least one failed month.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        The function is intentionally verbose in its artifact writing:</span>
+<span class="sd">        monthly parquet files, a manifest CSV, a metadata JSON file, the</span>
+<span class="sd">        consolidated registry, and the consolidated summary are all written so</span>
+<span class="sd">        long historical campaigns remain auditable and restartable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">states_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">states</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="n">sequences_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">sequences</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="n">words_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">words</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="n">monthly_dir</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s1">&#39;monthly_candidate_registry&#39;</span>
+    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">monthly_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">months</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">months</span> <span class="ow">or</span> <span class="n">collect_months</span><span class="p">(</span><span class="n">states_path</span><span class="p">,</span> <span class="n">sequences_path</span><span class="p">,</span> <span class="n">words_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">months</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;No source_month values found in the provided parquet files.&#39;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="n">builder</span> <span class="o">=</span> <span class="n">CandidateIncidentRegistryBuilder</span><span class="p">(</span><span class="n">RegistryGenerationConfig</span><span class="p">())</span>
+    <span class="n">monthly_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">manifest_rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">failures</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">month</span> <span class="ow">in</span> <span class="n">months</span><span class="p">:</span>
+        <span class="n">monthly_parquet</span> <span class="o">=</span> <span class="n">monthly_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s1">.parquet&#39;</span>
+        <span class="n">monthly_csv</span> <span class="o">=</span> <span class="n">monthly_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s1">.csv&#39;</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">skip_existing_months</span> <span class="ow">and</span> <span class="n">monthly_parquet</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="n">existing</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">monthly_parquet</span><span class="p">)</span>
+            <span class="n">monthly_paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">monthly_parquet</span><span class="p">)</span>
+            <span class="n">manifest_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;source_month&#39;</span><span class="p">:</span> <span class="n">month</span><span class="p">,</span>
+                <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;reused&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;registry_rows&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)),</span>
+                <span class="s1">&#39;states_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;sequences_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;words_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;secondary_family_non_null&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">existing</span><span class="p">[</span><span class="s1">&#39;secondary_family&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="k">if</span> <span class="s1">&#39;secondary_family&#39;</span> <span class="ow">in</span> <span class="n">existing</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">})</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s1">] reused </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span><span class="si">}</span><span class="s1"> rows from </span><span class="si">{</span><span class="n">monthly_parquet</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">registry</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">build_month_registry</span><span class="p">(</span>
+                <span class="n">builder</span><span class="p">,</span>
+                <span class="n">month</span><span class="o">=</span><span class="n">month</span><span class="p">,</span>
+                <span class="n">states_path</span><span class="o">=</span><span class="n">states_path</span><span class="p">,</span>
+                <span class="n">sequences_path</span><span class="o">=</span><span class="n">sequences_path</span><span class="p">,</span>
+                <span class="n">words_path</span><span class="o">=</span><span class="n">words_path</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">registry</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="n">manifest_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;source_month&#39;</span><span class="p">:</span> <span class="n">month</span><span class="p">,</span>
+                    <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;empty&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;registry_rows&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="s1">&#39;states_rows&#39;</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="s1">&#39;states_rows&#39;</span><span class="p">],</span>
+                    <span class="s1">&#39;sequences_rows&#39;</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="s1">&#39;sequences_rows&#39;</span><span class="p">],</span>
+                    <span class="s1">&#39;words_rows&#39;</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="s1">&#39;words_rows&#39;</span><span class="p">],</span>
+                    <span class="s1">&#39;secondary_family_non_null&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="p">})</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s1">] empty month or installation stop; skipped final monthly artifact&#39;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">registry</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">monthly_parquet</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">keep_monthly_csv</span><span class="p">:</span>
+                <span class="n">registry</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">monthly_csv</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">monthly_paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">monthly_parquet</span><span class="p">)</span>
+            <span class="n">manifest_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;source_month&#39;</span><span class="p">:</span> <span class="n">month</span><span class="p">,</span>
+                <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;written&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;registry_rows&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">registry</span><span class="p">)),</span>
+                <span class="s1">&#39;states_rows&#39;</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="s1">&#39;states_rows&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;sequences_rows&#39;</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="s1">&#39;sequences_rows&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;words_rows&#39;</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="s1">&#39;words_rows&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;secondary_family_non_null&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">registry</span><span class="p">[</span><span class="s1">&#39;secondary_family&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="k">if</span> <span class="s1">&#39;secondary_family&#39;</span> <span class="ow">in</span> <span class="n">registry</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">})</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s1">] wrote </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">registry</span><span class="p">)</span><span class="si">}</span><span class="s1"> rows &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;(secondary_family non-null: </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">registry</span><span class="p">[</span><span class="s2">&quot;secondary_family&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="s2">&quot;secondary_family&quot;</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">registry</span><span class="o">.</span><span class="n">columns</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="mi">0</span><span class="si">}</span><span class="s1">)&#39;</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - operational CLI safeguard</span>
+            <span class="n">failures</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">manifest_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;source_month&#39;</span><span class="p">:</span> <span class="n">month</span><span class="p">,</span>
+                <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;failed&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;registry_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;states_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;sequences_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;words_rows&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;secondary_family_non_null&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="p">})</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s1">] failed: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">fail_fast</span><span class="p">:</span>
+                <span class="k">break</span>
+
+    <span class="n">manifest</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">manifest_rows</span><span class="p">)</span>
+    <span class="n">manifest_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">output_stem</span><span class="si">}</span><span class="s1">_manifest.csv&#39;</span>
+    <span class="n">manifest</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">successful_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">path</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">monthly_paths</span> <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()]</span>
+    <span class="n">full_registry</span> <span class="o">=</span> <span class="n">consolidate_registries</span><span class="p">(</span><span class="n">successful_paths</span><span class="p">)</span>
+    <span class="n">registry_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">output_stem</span><span class="si">}</span><span class="s1">.csv&#39;</span>
+    <span class="n">summary_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">output_stem</span><span class="si">}</span><span class="s1">_summary.csv&#39;</span>
+    <span class="n">full_registry</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">registry_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">write_summary</span><span class="p">(</span><span class="n">full_registry</span><span class="p">,</span> <span class="n">summary_path</span><span class="p">)</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;months_requested&#39;</span><span class="p">:</span> <span class="n">months</span><span class="p">,</span>
+        <span class="s1">&#39;months_written&#39;</span><span class="p">:</span> <span class="n">manifest</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s1">&#39;written&#39;</span><span class="p">,</span> <span class="s1">&#39;reused&#39;</span><span class="p">]),</span> <span class="s1">&#39;source_month&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;empty_months&#39;</span><span class="p">:</span> <span class="n">manifest</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;empty&#39;</span><span class="p">,</span> <span class="s1">&#39;source_month&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;failed_months&#39;</span><span class="p">:</span> <span class="n">manifest</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;failed&#39;</span><span class="p">,</span> <span class="s1">&#39;source_month&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;failure_count&#39;</span><span class="p">:</span> <span class="n">failures</span><span class="p">,</span>
+        <span class="s1">&#39;final_registry_rows&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">full_registry</span><span class="p">)),</span>
+        <span class="s1">&#39;outputs&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;registry_csv&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">registry_path</span><span class="p">),</span>
+            <span class="s1">&#39;summary_csv&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">summary_path</span><span class="p">),</span>
+            <span class="s1">&#39;manifest_csv&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">),</span>
+            <span class="s1">&#39;monthly_dir&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">monthly_dir</span><span class="p">),</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">metadata_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">output_stem</span><span class="si">}</span><span class="s1">_metadata.json&#39;</span>
+    <span class="n">metadata_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Manifest saved to: </span><span class="si">{</span><span class="n">manifest_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Consolidated registry saved to: </span><span class="si">{</span><span class="n">registry_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Summary saved to: </span><span class="si">{</span><span class="n">summary_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Metadata saved to: </span><span class="si">{</span><span class="n">metadata_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Completed with </span><span class="si">{</span><span class="n">failures</span><span class="si">}</span><span class="s1"> failed months.&#39;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="mi">0</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

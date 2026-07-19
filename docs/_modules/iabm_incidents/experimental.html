@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iabm_incidents.experimental &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e92c8fc6" />
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for iabm_incidents.experimental</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Experimental evaluation utilities for Model_D.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">html</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelDConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.episodes</span><span class="w"> </span><span class="kn">import</span> <span class="n">IncidentEpisodeBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpisodeEvaluator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">summarize_episode_metrics</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndicatorPipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">IncidentRegistry</span>
+
+
+<div class="viewcode-block" id="ExperimentResult">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.ExperimentResult">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExperimentResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Artifacts produced by one experiment mode.&quot;&quot;&quot;</span>
+
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">episodes</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">window_scores</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">evaluation_summary</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">registry_matches</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">family_summary</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="n">lead_time_summary</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span></div>
+
+
+
+<div class="viewcode-block" id="ModelDExperimentRunner">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.ModelDExperimentRunner">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelDExperimentRunner</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run comparative experiments for semantic and indicator-driven detection.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ModelDConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">ModelDConfig</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span> <span class="o">=</span> <span class="n">IncidentEpisodeBuilder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline</span> <span class="o">=</span> <span class="n">IndicatorPipeline</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="n">EpisodeEvaluator</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span> <span class="o">=</span> <span class="n">IncidentRegistry</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ModelDExperimentRunner.run_semantic">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.ModelDExperimentRunner.run_semantic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_semantic</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">assignments</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">registry</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExperimentResult</span><span class="p">:</span>
+        <span class="n">window_scores</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="o">.</span><span class="n">build_window_scores</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">assignments</span><span class="p">)</span>
+        <span class="n">episodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_builder</span><span class="o">.</span><span class="n">build_episodes_from_semantic_assignments</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">assignments</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assemble_result</span><span class="p">(</span><span class="s2">&quot;semantic&quot;</span><span class="p">,</span> <span class="n">episodes</span><span class="p">,</span> <span class="n">window_scores</span><span class="p">,</span> <span class="n">registry</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModelDExperimentRunner.run_indicators">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.ModelDExperimentRunner.run_indicators">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_indicators</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">assignments</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">registry</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">analogue</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">digital</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExperimentResult</span><span class="p">:</span>
+        <span class="n">pipeline_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pipeline</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">sequences</span><span class="o">=</span><span class="n">sequences</span><span class="p">,</span>
+            <span class="n">assignments</span><span class="o">=</span><span class="n">assignments</span><span class="p">,</span>
+            <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">,</span>
+            <span class="n">analogue</span><span class="o">=</span><span class="n">analogue</span><span class="p">,</span>
+            <span class="n">digital</span><span class="o">=</span><span class="n">digital</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assemble_result</span><span class="p">(</span><span class="s2">&quot;indicators&quot;</span><span class="p">,</span> <span class="n">pipeline_result</span><span class="o">.</span><span class="n">episodes</span><span class="p">,</span> <span class="n">pipeline_result</span><span class="o">.</span><span class="n">window_scores</span><span class="p">,</span> <span class="n">registry</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ModelDExperimentRunner.run_comparison">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.ModelDExperimentRunner.run_comparison">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_comparison</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">sequences</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">assignments</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">registry</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">analogue</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">digital</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ExperimentResult</span><span class="p">]:</span>
+        <span class="n">normalized_registry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">registry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;semantic&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_semantic</span><span class="p">(</span><span class="n">sequences</span><span class="o">=</span><span class="n">sequences</span><span class="p">,</span> <span class="n">assignments</span><span class="o">=</span><span class="n">assignments</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">normalized_registry</span><span class="p">),</span>
+            <span class="s2">&quot;indicators&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_indicators</span><span class="p">(</span>
+                <span class="n">sequences</span><span class="o">=</span><span class="n">sequences</span><span class="p">,</span>
+                <span class="n">assignments</span><span class="o">=</span><span class="n">assignments</span><span class="p">,</span>
+                <span class="n">registry</span><span class="o">=</span><span class="n">normalized_registry</span><span class="p">,</span>
+                <span class="n">analogue</span><span class="o">=</span><span class="n">analogue</span><span class="p">,</span>
+                <span class="n">digital</span><span class="o">=</span><span class="n">digital</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="ModelDExperimentRunner.export_report">
+<a class="viewcode-back" href="../../model_d.html#iabm_incidents.ModelDExperimentRunner.export_report">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">export_report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ExperimentResult</span><span class="p">],</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+        <span class="n">output_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">written</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">comparison_summary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_comparison_summary</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="n">comparison_path</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;comparison_summary.csv&quot;</span>
+        <span class="n">comparison_summary</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">comparison_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">written</span><span class="p">[</span><span class="s2">&quot;comparison_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">comparison_path</span>
+
+        <span class="k">for</span> <span class="n">mode</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">mode_prefix</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="n">mode</span>
+            <span class="n">mode_prefix</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">frame</span> <span class="ow">in</span> <span class="p">{</span>
+                <span class="s2">&quot;episodes&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">episodes</span><span class="p">,</span>
+                <span class="s2">&quot;window_scores&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">window_scores</span><span class="p">,</span>
+                <span class="s2">&quot;evaluation_summary&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">evaluation_summary</span><span class="p">,</span>
+                <span class="s2">&quot;registry_matches&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">registry_matches</span><span class="p">,</span>
+                <span class="s2">&quot;family_summary&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">family_summary</span><span class="p">,</span>
+                <span class="s2">&quot;lead_time_summary&quot;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">lead_time_summary</span><span class="p">,</span>
+            <span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="n">mode_prefix</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+                <span class="n">frame</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">written</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">path</span>
+
+        <span class="n">report_path</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;experiment_report.html&quot;</span>
+        <span class="n">report_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build_html_report</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">comparison_summary</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">written</span><span class="p">[</span><span class="s2">&quot;html_report&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">report_path</span>
+
+        <span class="n">metadata_path</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;experiment_metadata.json&quot;</span>
+        <span class="n">metadata_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;modes&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+                    <span class="s2">&quot;artifacts&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">written</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+                <span class="p">},</span>
+                <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">written</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata_path</span>
+        <span class="k">return</span> <span class="n">written</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_result</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">episodes</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">window_scores</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">registry</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExperimentResult</span><span class="p">:</span>
+        <span class="n">normalized_registry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">registry</span><span class="p">)</span> <span class="k">if</span> <span class="n">registry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">normalized_registry</span><span class="p">,</span> <span class="n">episodes</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">normalized_registry</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="n">evaluation_summary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span><span class="o">.</span><span class="n">summarize</span><span class="p">(</span><span class="n">normalized_registry</span><span class="p">,</span> <span class="n">episodes</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">normalized_registry</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="n">family_summary</span> <span class="o">=</span> <span class="n">summarize_episode_metrics</span><span class="p">(</span><span class="n">episodes</span><span class="p">)</span>
+        <span class="n">lead_time_summary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lead_time_summary</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ExperimentResult</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">episodes</span><span class="p">,</span> <span class="n">window_scores</span><span class="p">,</span> <span class="n">evaluation_summary</span><span class="p">,</span> <span class="n">matches</span><span class="p">,</span> <span class="n">family_summary</span><span class="p">,</span> <span class="n">lead_time_summary</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_lead_time_summary</span><span class="p">(</span><span class="n">matches</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">matches</span><span class="o">.</span><span class="n">empty</span> <span class="ow">or</span> <span class="s2">&quot;lead_time_seconds&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matches</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                    <span class="s2">&quot;reference_family&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;match_count&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;mean_lead_time_hours&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;median_lead_time_hours&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;positive_lead_fraction&quot;</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">matches</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">frame</span><span class="p">[</span><span class="s2">&quot;lead_time_seconds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">frame</span><span class="p">[</span><span class="s2">&quot;lead_time_seconds&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">family</span><span class="p">,</span> <span class="n">family_frame</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;reference_family&quot;</span><span class="p">,</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;reference_family&quot;</span><span class="p">:</span> <span class="n">family</span><span class="p">,</span>
+                    <span class="s2">&quot;match_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">family_frame</span><span class="p">)),</span>
+                    <span class="s2">&quot;mean_lead_time_hours&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">family_frame</span><span class="p">[</span><span class="s2">&quot;lead_time_seconds&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">/</span> <span class="mf">3600.0</span><span class="p">),</span>
+                    <span class="s2">&quot;median_lead_time_hours&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">family_frame</span><span class="p">[</span><span class="s2">&quot;lead_time_seconds&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span> <span class="o">/</span> <span class="mf">3600.0</span><span class="p">),</span>
+                    <span class="s2">&quot;positive_lead_fraction&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">family_frame</span><span class="p">[</span><span class="s2">&quot;lead_time_seconds&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">gt</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;match_count&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_comparison_summary</span><span class="p">(</span><span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ExperimentResult</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mode</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">summary_row</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">evaluation_summary</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">evaluation_summary</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="p">{}</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">mode</span><span class="p">,</span>
+                    <span class="s2">&quot;episode_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">episodes</span><span class="p">)),</span>
+                    <span class="s2">&quot;window_count&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">window_scores</span><span class="p">)),</span>
+                    <span class="o">**</span><span class="n">summary_row</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_html_report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ExperimentResult</span><span class="p">],</span> <span class="n">comparison_summary</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">sections</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;&lt;html&gt;&lt;head&gt;&lt;meta charset=&#39;utf-8&#39;&gt;&lt;title&gt;Model_D Experimental Report&lt;/title&gt;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&lt;style&gt;body{font-family:Arial,sans-serif;margin:24px;}table{border-collapse:collapse;margin:16px 0;}th,td{border:1px solid #ccc;padding:6px 10px;}h1,h2{margin-top:24px;} .chart{margin:18px 0;padding:12px;border:1px solid #ddd;} svg text{font-size:12px;font-family:Arial,sans-serif;}&lt;/style&gt;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&lt;/head&gt;&lt;body&gt;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&lt;h1&gt;Model_D Experimental Report&lt;/h1&gt;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&lt;h2&gt;Comparison Summary&lt;/h2&gt;&quot;</span><span class="p">,</span>
+            <span class="n">comparison_summary</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_svg_bar_chart</span><span class="p">(</span><span class="n">comparison_summary</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;episode_precision&quot;</span><span class="p">,</span> <span class="s2">&quot;Episode Precision by Mode&quot;</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_svg_bar_chart</span><span class="p">(</span><span class="n">comparison_summary</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;family_precision&quot;</span><span class="p">,</span> <span class="s2">&quot;Family Precision by Mode&quot;</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">mode</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">sections</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;&lt;h2&gt;Mode: </span><span class="si">{</span><span class="n">html</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/h2&gt;&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;&lt;p&gt;Episodes: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">episodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> | Windows: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">window_scores</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/p&gt;&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;&lt;h3&gt;Evaluation Summary&lt;/h3&gt;&quot;</span><span class="p">,</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">evaluation_summary</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">evaluation_summary</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="s2">&quot;&lt;p&gt;No evaluation summary available.&lt;/p&gt;&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;&lt;h3&gt;Family Summary&lt;/h3&gt;&quot;</span><span class="p">,</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">family_summary</span><span class="o">.</span><span class="n">to_html</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">family_summary</span><span class="o">.</span><span class="n">empty</span> <span class="k">else</span> <span class="s2">&quot;&lt;p&gt;No family summary available.&lt;/p&gt;&quot;</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_svg_bar_chart</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">family_summary</span><span class="p">,</span> <span class="s2">&quot;primary_family&quot;</span><span class="p">,</span> <span class="s2">&quot;episode_count&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Episode Count by Family (</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_svg_bar_chart</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">lead_time_summary</span><span class="p">,</span> <span class="s2">&quot;reference_family&quot;</span><span class="p">,</span> <span class="s2">&quot;mean_lead_time_hours&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Mean Lead Time by Family (</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="n">sections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&lt;/body&gt;&lt;/html&gt;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sections</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_svg_bar_chart</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">category_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">empty</span> <span class="ow">or</span> <span class="n">category_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="n">value_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;div class=&#39;chart&#39;&gt;&lt;strong&gt;</span><span class="si">{</span><span class="n">html</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">title</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/strong&gt;&lt;p&gt;No data.&lt;/p&gt;&lt;/div&gt;&quot;</span>
+        <span class="n">plotting</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[[</span><span class="n">category_col</span><span class="p">,</span> <span class="n">value_col</span><span class="p">]]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">plotting</span><span class="p">[</span><span class="n">value_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">plotting</span><span class="p">[</span><span class="n">value_col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">plotting</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;div class=&#39;chart&#39;&gt;&lt;strong&gt;</span><span class="si">{</span><span class="n">html</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">title</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/strong&gt;&lt;p&gt;No data.&lt;/p&gt;&lt;/div&gt;&quot;</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">plotting</span><span class="p">[</span><span class="n">value_col</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">max_value</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="mi">700</span>
+        <span class="n">bar_height</span> <span class="o">=</span> <span class="mi">26</span>
+        <span class="n">gap</span> <span class="o">=</span> <span class="mi">12</span>
+        <span class="n">left_pad</span> <span class="o">=</span> <span class="mi">180</span>
+        <span class="n">top_pad</span> <span class="o">=</span> <span class="mi">40</span>
+        <span class="n">height</span> <span class="o">=</span> <span class="n">top_pad</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">plotting</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">bar_height</span> <span class="o">+</span> <span class="n">gap</span><span class="p">)</span> <span class="o">+</span> <span class="mi">20</span>
+        <span class="n">bars</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;&lt;div class=&#39;chart&#39;&gt;&lt;strong&gt;</span><span class="si">{</span><span class="n">html</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">title</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/strong&gt;&lt;svg width=&#39;</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&#39; height=&#39;</span><span class="si">{</span><span class="n">height</span><span class="si">}</span><span class="s2">&#39;&gt;&quot;</span><span class="p">]</span>
+        <span class="n">bars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;text x=&#39;10&#39; y=&#39;22&#39;&gt;</span><span class="si">{</span><span class="n">html</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">title</span><span class="p">)</span><span class="si">}</span><span class="s2">&lt;/text&gt;&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">plotting</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">top_pad</span> <span class="o">+</span> <span class="n">idx</span> <span class="o">*</span> <span class="p">(</span><span class="n">bar_height</span> <span class="o">+</span> <span class="n">gap</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">html</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">category_col</span><span class="p">]))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">value_col</span><span class="p">])</span>
+            <span class="n">bar_width</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">max_value</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">int</span><span class="p">((</span><span class="n">width</span> <span class="o">-</span> <span class="n">left_pad</span> <span class="o">-</span> <span class="mi">80</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">value</span> <span class="o">/</span> <span class="n">max_value</span><span class="p">))</span>
+            <span class="n">bars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;text x=&#39;10&#39; y=&#39;</span><span class="si">{</span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">18</span><span class="si">}</span><span class="s2">&#39;&gt;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&lt;/text&gt;&quot;</span><span class="p">)</span>
+            <span class="n">bars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;rect x=&#39;</span><span class="si">{</span><span class="n">left_pad</span><span class="si">}</span><span class="s2">&#39; y=&#39;</span><span class="si">{</span><span class="n">y</span><span class="si">}</span><span class="s2">&#39; width=&#39;</span><span class="si">{</span><span class="n">bar_width</span><span class="si">}</span><span class="s2">&#39; height=&#39;</span><span class="si">{</span><span class="n">bar_height</span><span class="si">}</span><span class="s2">&#39; fill=&#39;#3b82f6&#39;&gt;&lt;/rect&gt;&quot;</span><span class="p">)</span>
+            <span class="n">bars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;text x=&#39;</span><span class="si">{</span><span class="n">left_pad</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">bar_width</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">8</span><span class="si">}</span><span class="s2">&#39; y=&#39;</span><span class="si">{</span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">18</span><span class="si">}</span><span class="s2">&#39;&gt;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&lt;/text&gt;&quot;</span><span class="p">)</span>
+        <span class="n">bars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&lt;/svg&gt;&lt;/div&gt;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bars</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reliability_interpretation.html">Reliability-Informed Interpretation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

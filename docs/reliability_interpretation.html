@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Reliability-Informed Interpretation &#8212; Industrial Asset Behavioral Monitoring 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=6625fa76" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=cb25574f" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e92c8fc6" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', function () { if (window.mermaid) { mermaid.initialize({ startOnLoad: true }); } });</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Reproducibility" href="reproducibility.html" />
+    <link rel="prev" title="Longitudinal Validation" href="longitudinal_validation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="reliability-informed-interpretation">
+<h1>Reliability-Informed Interpretation<a class="headerlink" href="#reliability-informed-interpretation" title="Link to this heading">¶</a></h1>
+<p>The semantic layer in the updated repository no longer stops at contextualized
+operating or working modes. It now supports a reliability-informed reading of
+behavioral traces.</p>
+<section id="from-modes-to-life-proxies">
+<h2>From modes to life proxies<a class="headerlink" href="#from-modes-to-life-proxies" title="Link to this heading">¶</a></h2>
+<p>The central idea is that repeated sequence patterns can act as weak but useful
+proxies for asset-life evolution. Instead of claiming direct physical failure
+models, the repository exposes interpretable intermediate concepts such as:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">incident_family</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reliability_interpretation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">life_regime</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">recovery_regime</span></code></p></li>
+</ul>
+<p>These concepts bridge behavior analytics and maintenance-oriented reasoning while
+remaining grounded in observed telemetry and sequence evolution.</p>
+</section>
+<section id="examples-of-interpretation">
+<h2>Examples of interpretation<a class="headerlink" href="#examples-of-interpretation" title="Link to this heading">¶</a></h2>
+<p>The current heuristic layer supports readings such as:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pump_abrupt_failure</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">high_severity_failure_proxy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">process_saturation</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">load_or_capacity_stress_proxy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">float_recurrent_disturbance</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">recurrent_control_disturbance_proxy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">post_intervention_recovery</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">recovery_stabilization_proxy</span></code></p></li>
+</ul>
+<p>Likewise, life regimes such as <code class="docutils literal notranslate"><span class="pre">degradation_acceleration</span></code> or
+<code class="docutils literal notranslate"><span class="pre">recurrent_instability</span></code> provide an interpretable vocabulary for discussing how
+sequence evolution may reflect changing operating conditions.</p>
+</section>
+<section id="limits-of-the-current-layer">
+<h2>Limits of the current layer<a class="headerlink" href="#limits-of-the-current-layer" title="Link to this heading">¶</a></h2>
+<p>The repository does not yet implement a full reliability model. The current
+layer should therefore be read as:</p>
+<ul class="simple">
+<li><p>a structured interpretation scaffold,</p></li>
+<li><p>a transparent weak-labeling mechanism,</p></li>
+<li><p>a bridge toward future family-specific occurrence modelling.</p></li>
+</ul>
+<p>This keeps the system scientifically honest while still supporting practical
+reasoning about incidents, recovery, and longitudinal monitoring.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Industrial Asset Behavioral Monitoring</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automation.html">Automation and Batch Runs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="incident_taxonomy.html">Incident Taxonomy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="longitudinal_validation.html">Longitudinal Validation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Reliability-Informed Interpretation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#from-modes-to-life-proxies">From modes to life proxies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#examples-of-interpretation">Examples of interpretation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#limits-of-the-current-layer">Limits of the current layer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reproducibility.html">Reproducibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="semantic_schema.html">Semantic Schema</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_a.html">Model_A API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_b.html">Model_B API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_c.html">Model_C API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_d.html">Model_D API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="longitudinal_validation.html" title="previous chapter">Longitudinal Validation</a></li>
+      <li>Next: <a href="reproducibility.html" title="next chapter">Reproducibility</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2026, Industrial Asset Behavioral Monitoring contributors.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/reliability_interpretation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
