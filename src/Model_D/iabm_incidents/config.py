@@ -59,6 +59,7 @@ class EpisodeDetectionConfig:
     recovery_windows: int = 3
     minimum_duration: pd.Timedelta = pd.Timedelta(minutes=10)
     maximum_gap: pd.Timedelta = pd.Timedelta(hours=2)
+    maximum_duration: pd.Timedelta = pd.Timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -160,6 +161,7 @@ def _load_detection_config(payload: dict[str, Any]) -> EpisodeDetectionConfig:
         recovery_windows=int(payload.get("recovery_windows", 3)),
         minimum_duration=pd.Timedelta(hours=payload.get("minimum_duration_hours", 0.5)),
         maximum_gap=pd.Timedelta(hours=payload.get("maximum_gap_hours", 2)),
+        maximum_duration=pd.Timedelta(hours=payload.get("maximum_duration_hours", 24 * 7)),
     )
 
 

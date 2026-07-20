@@ -37,6 +37,10 @@ def sequences_frame() -> pd.DataFrame:
             "states": ["(1, 2)", "(16, 19)", "(1, 2)", "(1, 2)", "(4, 12)", "(1, 2)"],
             "total_duration_seconds": [300.0, 300.0, 300.0, 300.0, 300.0, 300.0],
             "run_count": [2, 2, 2, 2, 2, 2],
+            "nominal_match": ["(1, 2)", "(1, 2)", "(1, 2)", "(1, 2)", "(1, 2)", "(1, 2)"],
+            "state_distance": [0, 1, 0, 0, 2, 0],
+            "dtw_distance": [0.0, 1.0, 0.0, 0.0, 2.0, 0.0],
+            "anomaly_score": [0.0, 1.2, 0.0, 0.0, 1.7, 0.0],
         }
     )
 
@@ -109,5 +113,54 @@ def out_of_window_incidents_frame() -> pd.DataFrame:
             "documented_start": ["2022-01-01 05:00:00"],
             "documented_end": ["2022-01-01 05:10:00"],
             "label_strength": ["weak"],
+        }
+    )
+
+
+@pytest.fixture
+def regime_sequences_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "start_time": [
+                "2022-01-01 01:00:00",
+                "2022-01-01 01:10:00",
+                "2022-01-01 12:00:00",
+                "2022-01-01 12:10:00",
+            ],
+            "end_time": [
+                "2022-01-01 01:05:00",
+                "2022-01-01 01:15:00",
+                "2022-01-01 12:05:00",
+                "2022-01-01 12:15:00",
+            ],
+            "states": ["(1, 2)", "(1, 2)", "(17, 17)", "(17, 17)"],
+            "total_duration_seconds": [300.0, 300.0, 300.0, 300.0],
+            "run_count": [1, 1, 4, 4],
+            "nominal_match": ["(1, 2)", "(1, 2)", "(17, 17)", "(17, 17)"],
+            "state_distance": [0, 0, 0, 0],
+            "dtw_distance": [0.0, 0.0, 0.0, 0.0],
+            "anomaly_score": [0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+
+@pytest.fixture
+def regime_assignments_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "semantic_status": ["NORMAL", "NORMAL", "NORMAL", "NORMAL"],
+            "incident_family": [
+                "post_intervention_recovery",
+                "post_intervention_recovery",
+                "post_intervention_recovery",
+                "post_intervention_recovery",
+            ],
+            "sequence_divergence": [0.0, 0.0, 0.0, 0.0],
+            "duration_drift": [0.0, 0.0, 0.0, 0.0],
+            "recurrence_excess": [0.0, 0.0, 0.0, 0.0],
+            "persistence_excess": [0.0, 0.0, 0.0, 0.0],
+            "consumption_deviation": [0.0, 0.0, 0.0, 0.0],
+            "state_error_rate": [0.0, 0.0, 0.0, 0.0],
+            "mode_divergence": [0.0, 0.0, 0.0, 0.0],
         }
     )

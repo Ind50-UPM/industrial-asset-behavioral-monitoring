@@ -87,7 +87,93 @@ class RuleBasedFamilyClassifier:
                 evidence=merged_evidence,
             )
 
+        combined = self._resolve_competing_families(combined, features)
         return list(combined.values()) or [FamilyScore("unclassified_incident", 0.0, tuple())]
+
+    def _resolve_competing_families(
+        self,
+        scores: dict[str, FamilyScore],
+        features: pd.Series,
+    ) -> dict[str, FamilyScore]:
+        pump = scores.get("pump_abrupt_failure")
+        saturation = scores.get("process_saturation")
+        if pump is None or saturation is None:
+            return scores
+
+        if not self._episode_has_pump_saturation_competition(features, pump, saturation):
+            return scores
+
+        if self._prefer_process_saturation_over_pump(features):
+            scores["process_saturation"] = FamilyScore(
+                "process_saturation",
+                min(max(saturation.score + 0.10, pump.score + 0.01), 1.0),
+                saturation.evidence + tuple(item for item in (
+                    "episode-level family resolution favored sustained regime",
+                    "persistent/degraded context dominates abrupt signature",
+                ) if item not in saturation.evidence),
+            )
+            scores["pump_abrupt_failure"] = FamilyScore(
+                "pump_abrupt_failure",
+                max(pump.score - 0.12, 0.0),
+                pump.evidence + tuple(item for item in (
+                    "episode-level family resolution demoted abrupt family",
+                ) if item not in pump.evidence),
+            )
+        elif self._prefer_pump_over_process_saturation(features):
+            scores["pump_abrupt_failure"] = FamilyScore(
+                "pump_abrupt_failure",
+                min(max(pump.score + 0.08, saturation.score + 0.01), 1.0),
+                pump.evidence + tuple(item for item in (
+                    "episode-level family resolution favored abrupt rupture",
+                ) if item not in pump.evidence),
+            )
+            scores["process_saturation"] = FamilyScore(
+                "process_saturation",
+                max(saturation.score - 0.10, 0.0),
+                saturation.evidence + tuple(item for item in (
+                    "episode-level family resolution demoted saturation family",
+                ) if item not in saturation.evidence),
+            )
+        return scores
+
+    def _episode_has_pump_saturation_competition(
+        self,
+        features: pd.Series,
+        pump: FamilyScore,
+        saturation: FamilyScore,
+    ) -> bool:
+        return bool(
+            pump.score >= 0.45
+            and saturation.score >= 0.45
+            and (
+                self._feature(features, "mixed_family_evidence") >= 1.0
+                or abs(pump.score - saturation.score) <= 0.2
+            )
+        )
+
+    def _prefer_process_saturation_over_pump(self, features: pd.Series) -> bool:
+        persistent_regime = self._feature(features, "mean_dominant_state_word_fraction") >= 0.65
+        low_transition = self._feature(features, "mean_state_word_transition_rate") <= 0.35
+        duration_drift = self._feature(features, "median_duration_drift") >= 0.25
+        persistence_excess = self._feature(features, "max_persistence_excess") >= 0.15
+        state17_or_degraded = self._feature(features, "mean_state_17_fraction") > 0.0 or self._feature(features, "mean_off_nominal_state_fraction") >= 0.25
+        no_drop = self._feature(features, "signed_consumption_deviation") >= -0.05
+        return bool(
+            ((persistent_regime and low_transition) and (duration_drift or persistence_excess))
+            or (state17_or_degraded and persistent_regime and low_transition)
+            or (no_drop and duration_drift and low_transition)
+        )
+
+    def _prefer_pump_over_process_saturation(self, features: pd.Series) -> bool:
+        severe_drop = self._feature(features, "min_consumption_deviation") <= -0.7
+        abrupt_onset = self._feature(features, "onset_slope") >= 0.25
+        state_break = self._feature(features, "max_state_error_rate") >= 0.25
+        high_divergence = self._feature(features, "max_sequence_divergence") >= 0.8
+        off_nominal = self._feature(features, "mean_nominal_state_word_match_fraction") <= 0.25
+        unstable_words = self._feature(features, "mean_state_word_transition_rate") >= 0.5
+        return bool(
+            severe_drop and abrupt_onset and (state_break or high_divergence) and (off_nominal or unstable_words)
+        )
 
     def _semantic_family_scores(self, episode_frame: pd.DataFrame, features: pd.Series) -> list[FamilyScore]:
         family_counts = episode_frame.get("incident_family", pd.Series(dtype=str)).value_counts(normalize=True)
@@ -146,6 +232,12 @@ class RuleBasedFamilyClassifier:
         if self._feature(features, "onset_slope") >= 0.2:
             score += 0.15
             evidence.append("abrupt onset")
+        if self._feature(features, "mean_nominal_state_word_match_fraction") <= 0.35 and self._feature(features, "mean_state_distance_to_nominal") >= 0.8:
+            score += 0.10
+            evidence.append("far from nominal word pattern")
+        if self._feature(features, "mean_state_17_fraction") > 0.0 or self._feature(features, "mean_rare_state_fraction") >= 0.2:
+            score += 0.10
+            evidence.append("rare state presence")
         return FamilyScore("pump_abrupt_failure", min(score, 1.0), tuple(evidence))
 
     def _score_float_recurrent_disturbance(self, episode_frame: pd.DataFrame, features: pd.Series) -> FamilyScore:
@@ -167,6 +259,18 @@ class RuleBasedFamilyClassifier:
         if self._feature(features, "max_sequence_divergence") >= 0.75:
             score += 0.10
             evidence.append("behavioral divergence present")
+        if self._feature(features, "mean_state_word_transition_rate") >= 0.55:
+            score += 0.20
+            evidence.append("unstable word regime")
+        if self._feature(features, "dominant_state_word_count") >= 2.0:
+            score += 0.05
+            evidence.append("multiple dominant words across episode")
+        if self._feature(features, "mean_nominal_state_word_match_fraction") <= 0.4:
+            score += 0.10
+            evidence.append("recurrent off-nominal word regime")
+        if self._feature(features, "mean_word_regime_shift_score") >= 0.45 or self._feature(features, "mean_rare_word_fraction") >= 0.35:
+            score += 0.15
+            evidence.append("shifted word distribution")
         return FamilyScore("float_recurrent_disturbance", min(score, 1.0), tuple(evidence))
 
     def _score_process_saturation(self, episode_frame: pd.DataFrame, features: pd.Series) -> FamilyScore:
@@ -174,7 +278,7 @@ class RuleBasedFamilyClassifier:
         evidence: list[str] = []
         semantic_frequency = self._semantic_frequency(episode_frame, "process_saturation")
         if semantic_frequency >= 0.4:
-            score += 0.30
+            score += 0.25
             evidence.append("process saturation semantic support")
         if self._feature(features, "median_duration_drift") >= 0.25:
             score += 0.25
@@ -188,6 +292,18 @@ class RuleBasedFamilyClassifier:
         if self._feature(features, "mean_mode_divergence") >= 0.15:
             score += 0.10
             evidence.append("mode drift during sustained event")
+        if self._feature(features, "mean_dominant_state_word_fraction") >= 0.65:
+            score += 0.12
+            evidence.append("persistent degraded word regime")
+        if self._feature(features, "mean_state_word_transition_rate") <= 0.35 and self._feature(features, "median_state_word_diversity") <= 2.0:
+            score += 0.08
+            evidence.append("stable non-nominal word persistence")
+        if self._feature(features, "mean_nominal_state_word_match_fraction") >= 0.6 and self._feature(features, "mean_nominal_word_anomaly_score") >= 0.4:
+            score += 0.10
+            evidence.append("near nominal word with abnormal duration or timing")
+        if self._feature(features, "mean_rare_word_fraction") >= 0.25 and self._feature(features, "mean_rare_state_fraction") < 0.15:
+            score += 0.10
+            evidence.append("rare word pressure without major state shift")
         return FamilyScore("process_saturation", min(score, 1.0), tuple(evidence))
 
     def _score_post_intervention_recovery(self, episode_frame: pd.DataFrame, features: pd.Series) -> FamilyScore:
@@ -228,6 +344,9 @@ class RuleBasedFamilyClassifier:
         if self._feature(features, "mixed_family_evidence") >= 1.0:
             score += 0.20
             evidence.append("mixed family evidence")
+        if self._feature(features, "mean_word_regime_shift_score") >= 0.5:
+            score += 0.10
+            evidence.append("word distribution shift without stable family")
         if self._feature(features, "max_recurrence_excess") < 0.2:
             score += 0.10
             evidence.append("not strongly recurrent")
@@ -293,6 +412,14 @@ class RuleBasedFamilyClassifier:
                 float(f.get("max_mode_divergence", 0.0)) >= 0.2,
                 float(f.get("max_state_error_rate", 0.0)) >= 0.15,
             ]) >= 2,
+            "stable_word_regime": lambda f: float(f.get("mean_state_word_transition_rate", 0.0)) <= 0.25,
+            "word_regime_instability": lambda f: float(f.get("mean_state_word_transition_rate", 0.0)) >= 0.55,
+            "persistent_word_regime": lambda f: float(f.get("mean_dominant_state_word_fraction", 0.0)) >= 0.65,
+            "far_from_nominal_word": lambda f: float(f.get("mean_nominal_state_word_match_fraction", 0.0)) <= 0.35 or float(f.get("mean_state_distance_to_nominal", 0.0)) >= 0.8,
+            "near_nominal_word_with_duration_drift": lambda f: float(f.get("mean_nominal_state_word_match_fraction", 0.0)) >= 0.6 and float(f.get("median_duration_drift", 0.0)) >= 0.25,
+            "rare_state_presence": lambda f: float(f.get("mean_state_17_fraction", 0.0)) > 0.0 or float(f.get("mean_rare_state_fraction", 0.0)) >= 0.2,
+            "word_distribution_shift": lambda f: float(f.get("mean_word_regime_shift_score", 0.0)) >= 0.45,
+            "rare_word_pressure_without_state_shift": lambda f: float(f.get("mean_rare_word_fraction", 0.0)) >= 0.25 and float(f.get("mean_rare_state_fraction", 0.0)) < 0.15,
         }
         checker = mapping.get(feature_name)
         return bool(checker(features)) if checker is not None else False

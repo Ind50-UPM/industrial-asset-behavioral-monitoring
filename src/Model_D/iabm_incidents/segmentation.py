@@ -124,28 +124,81 @@ class EpisodeSegmenter:
     ) -> None:
         if len(indices) < detection_config.onset_windows:
             return
-        start_row = window_frame.loc[indices[0]]
-        end_row = window_frame.loc[indices[-1]]
-        if end_row["end_time"] - start_row["start_time"] < detection_config.minimum_duration:
-            return
+        split_groups = EpisodeSegmenter._split_long_segment(window_frame, indices, detection_config)
+        for group in split_groups:
+            if len(group) < detection_config.onset_windows:
+                continue
+            start_row = window_frame.loc[group[0]]
+            end_row = window_frame.loc[group[-1]]
+            if end_row["end_time"] - start_row["start_time"] < detection_config.minimum_duration:
+                continue
 
-        scores = pd.to_numeric(window_frame.loc[indices, "deviation_score"], errors="coerce").fillna(0.0)
-        peak_index = int(scores.idxmax())
-        recovery_start_index, recovery_end_index = EpisodeSegmenter._find_recovery_indices(
-            window_frame,
-            end_index=indices[-1],
-            recovery_threshold=detection_config.recovery_threshold,
-            recovery_windows=detection_config.recovery_windows,
-        )
-        segments.append(
-            EpisodeSegment(
-                start_index=indices[0],
-                peak_index=peak_index,
-                end_index=indices[-1],
-                recovery_start_index=recovery_start_index,
-                recovery_end_index=recovery_end_index,
+            scores = pd.to_numeric(window_frame.loc[group, "deviation_score"], errors="coerce").fillna(0.0)
+            peak_index = int(scores.idxmax())
+            recovery_start_index, recovery_end_index = EpisodeSegmenter._find_recovery_indices(
+                window_frame,
+                end_index=group[-1],
+                recovery_threshold=detection_config.recovery_threshold,
+                recovery_windows=detection_config.recovery_windows,
             )
-        )
+            segments.append(
+                EpisodeSegment(
+                    start_index=group[0],
+                    peak_index=peak_index,
+                    end_index=group[-1],
+                    recovery_start_index=recovery_start_index,
+                    recovery_end_index=recovery_end_index,
+                )
+            )
+
+    @staticmethod
+    def _split_long_segment(
+        window_frame: pd.DataFrame,
+        indices: list[int],
+        detection_config: EpisodeDetectionConfig,
+    ) -> list[list[int]]:
+        if not indices:
+            return []
+        maximum_duration = detection_config.maximum_duration
+        if maximum_duration <= pd.Timedelta(0):
+            return [indices]
+        groups: list[list[int]] = []
+        pending = list(indices)
+        while pending:
+            start_index = pending[0]
+            start_time = pd.to_datetime(window_frame.loc[start_index, "start_time"])
+            end_time = pd.to_datetime(window_frame.loc[pending[-1], "end_time"])
+            if end_time - start_time <= maximum_duration:
+                groups.append(pending)
+                break
+            split_at = EpisodeSegmenter._choose_split_index(window_frame, pending, start_time + maximum_duration)
+            if split_at <= 0 or split_at >= len(pending):
+                split_at = max(1, min(len(pending) - 1, len(pending) // 2))
+            groups.append(pending[:split_at])
+            pending = pending[split_at:]
+        return groups
+
+    @staticmethod
+    def _choose_split_index(
+        window_frame: pd.DataFrame,
+        indices: list[int],
+        target_time: pd.Timestamp,
+    ) -> int:
+        candidate_positions = [
+            position
+            for position, index in enumerate(indices)
+            if pd.to_datetime(window_frame.loc[index, "start_time"]) >= target_time
+        ]
+        if not candidate_positions:
+            return len(indices)
+        anchor = candidate_positions[0]
+        left = max(1, anchor - 6)
+        right = min(len(indices) - 1, anchor + 6)
+        candidate_slice = indices[left:right + 1]
+        scores = pd.to_numeric(window_frame.loc[candidate_slice, "deviation_score"], errors="coerce").fillna(0.0)
+        local_min_index = int(scores.idxmin())
+        chosen = indices.index(local_min_index)
+        return max(1, min(len(indices) - 1, chosen))
 
     @staticmethod
     def _find_recovery_indices(

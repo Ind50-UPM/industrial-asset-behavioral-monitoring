@@ -7,6 +7,7 @@ from pandas.testing import assert_frame_equal
 
 from iabm_incidents import EpisodeEvaluator, IncidentEpisodeBuilder, IncidentRegistry, OccurrenceModeler
 from iabm_incidents.classification import RuleBasedFamilyClassifier
+from iabm_incidents.detection import _infer_fallback_family
 from iabm_incidents.config import FamilyAssignmentConfig, ModelDConfig, WindowConfig
 from iabm_incidents.episodes import CandidateSegment
 from iabm_incidents.metrics import summarize_episode_metrics
@@ -271,6 +272,10 @@ def test_build_episode_features_for_classification(assignments_frame) -> None:
 
     assert len(features) == len(episodes)
     assert "max_sequence_divergence" in features.columns
+    assert "mean_state_word_transition_rate" in features.columns
+    assert "mean_nominal_state_word_match_fraction" in features.columns
+    assert "mean_word_regime_shift_score" in features.columns
+    assert "mean_state_17_fraction" in features.columns
     assert features["dominant_family"].notna().all()
 
 
@@ -315,3 +320,259 @@ def test_signature_layer_contributes_evidence_for_known_family() -> None:
 def test_taxonomy_exposes_signatures() -> None:
     assert is_known_family("pump_abrupt_failure")
     assert FAMILY_SIGNATURES["pump_abrupt_failure"].minimum_assignment_score == 0.70
+
+
+def test_rule_based_classifier_uses_word_regime_to_support_process_saturation() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "median_duration_drift": 0.32,
+            "max_persistence_excess": 0.18,
+            "signed_consumption_deviation": 0.05,
+            "mean_mode_divergence": 0.12,
+            "mean_dominant_state_word_fraction": 0.82,
+            "mean_state_word_transition_rate": 0.18,
+            "median_state_word_diversity": 1.5,
+            "peak_score": 1.4,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "process_saturation"
+    assert any("word" in item for item in assignment.evidence)
+
+
+def test_rule_based_classifier_uses_word_regime_to_support_float_disturbance() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "max_recurrence_excess": 0.25,
+            "median_persistence_excess": 0.12,
+            "mean_state_error_rate": 0.08,
+            "max_sequence_divergence": 0.8,
+            "mean_state_word_transition_rate": 0.75,
+            "dominant_state_word_count": 3.0,
+            "peak_score": 1.2,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "float_recurrent_disturbance"
+    assert any("word" in item for item in assignment.evidence)
+
+
+def test_rule_based_classifier_uses_nominal_word_deviation_for_pump_failure() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "min_consumption_deviation": -0.72,
+            "max_state_error_rate": 0.28,
+            "max_sequence_divergence": 0.82,
+            "onset_slope": 0.24,
+            "mean_nominal_state_word_match_fraction": 0.1,
+            "mean_state_distance_to_nominal": 1.6,
+            "peak_score": 1.9,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "pump_abrupt_failure"
+    assert any("nominal" in item for item in assignment.evidence)
+
+
+def test_window_scores_preserve_nominal_word_signals(sequences_frame, assignments_frame) -> None:
+    builder = IncidentEpisodeBuilder()
+    window_scores = builder.build_window_scores(sequences_frame, assignments_frame)
+
+    assert "nominal_state_word_match_fraction" in window_scores.columns
+    assert "mean_state_distance" in window_scores.columns
+    assert window_scores["nominal_state_word_match_fraction"].between(0.0, 1.0).all()
+
+
+def test_rule_based_classifier_uses_rare_state_signal_for_pump_failure() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "min_consumption_deviation": -0.6,
+            "max_state_error_rate": 0.22,
+            "max_sequence_divergence": 0.74,
+            "onset_slope": 0.22,
+            "mean_state_17_fraction": 0.2,
+            "mean_rare_state_fraction": 0.3,
+            "peak_score": 1.7,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "pump_abrupt_failure"
+    assert any("rare state" in item for item in assignment.evidence)
+
+
+def test_rule_based_classifier_uses_distribution_shift_for_float_disturbance() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "max_recurrence_excess": 0.24,
+            "median_persistence_excess": 0.11,
+            "mean_state_error_rate": 0.07,
+            "max_sequence_divergence": 0.79,
+            "mean_state_word_transition_rate": 0.62,
+            "mean_word_regime_shift_score": 0.58,
+            "mean_rare_word_fraction": 0.4,
+            "peak_score": 1.1,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "float_recurrent_disturbance"
+    assert any("shift" in item for item in assignment.evidence)
+
+
+def test_window_scores_capture_distribution_and_rare_state_signals(sequences_frame, assignments_frame) -> None:
+    builder = IncidentEpisodeBuilder()
+    window_scores = builder.build_window_scores(sequences_frame, assignments_frame)
+
+    assert "rare_word_fraction" in window_scores.columns
+    assert "rare_state_fraction" in window_scores.columns
+    assert "state_17_fraction" in window_scores.columns
+    assert "word_regime_shift_score" in window_scores.columns
+
+
+def test_window_scores_use_regime_stratified_baseline(regime_sequences_frame, regime_assignments_frame) -> None:
+    builder = IncidentEpisodeBuilder(
+        ModelDConfig(
+            window=WindowConfig(
+                length=pd.Timedelta(minutes=10),
+                step=pd.Timedelta(minutes=10),
+                min_coverage=0.0,
+                min_active_sequences=1,
+            )
+        )
+    )
+
+    window_scores = builder.build_window_scores(regime_sequences_frame, regime_assignments_frame)
+
+    assert len(window_scores) >= 2
+    assert window_scores["rare_word_fraction"].eq(0.0).all()
+    assert window_scores["rare_state_fraction"].eq(0.0).all()
+    assert window_scores["state_17_fraction"].max() > 0.0
+
+
+
+def test_localized_fallback_targets_stable_monoword_shift_only() -> None:
+    march_4_signature = {
+        "word_regime_shift_score": 0.998117,
+        "dominant_state_word_fraction": 1.0,
+        "rare_word_fraction": 0.0,
+        "rare_state_fraction": 0.125,
+        "state_word_transition_rate": 0.0,
+        "state_word_diversity": 1.0,
+        "state_17_fraction": 0.0,
+        "off_nominal_state_fraction": 0.0,
+        "nominal_state_word_match_fraction": 0.0,
+    }
+    march_27_signature = {
+        "word_regime_shift_score": 0.999213,
+        "dominant_state_word_fraction": 0.076923,
+        "rare_word_fraction": 0.923077,
+        "rare_state_fraction": 0.001035,
+        "state_word_transition_rate": 1.0,
+        "state_word_diversity": 13.0,
+        "state_17_fraction": 0.0,
+        "off_nominal_state_fraction": 0.0,
+        "nominal_state_word_match_fraction": 0.0,
+    }
+
+    assert _infer_fallback_family(march_4_signature) == "process_saturation"
+    assert _infer_fallback_family(march_27_signature) is None
+
+
+
+def test_episode_level_resolution_prefers_process_saturation_over_pump_when_persistent_regime_dominates() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "min_consumption_deviation": -0.58,
+            "max_state_error_rate": 0.24,
+            "max_sequence_divergence": 0.78,
+            "onset_slope": 0.22,
+            "median_duration_drift": 0.34,
+            "max_persistence_excess": 0.2,
+            "signed_consumption_deviation": 0.02,
+            "mean_dominant_state_word_fraction": 0.84,
+            "mean_state_word_transition_rate": 0.16,
+            "median_state_word_diversity": 1.5,
+            "mean_state_17_fraction": 0.18,
+            "mean_off_nominal_state_fraction": 0.32,
+            "mixed_family_evidence": 1.0,
+            "peak_score": 1.7,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "process_saturation"
+    assert "pump_abrupt_failure" in assignment.secondary_families
+    assert any("episode-level family resolution favored sustained regime" in item for item in assignment.evidence)
+
+
+def test_episode_level_resolution_prefers_pump_when_abrupt_signature_dominates() -> None:
+    classifier = RuleBasedFamilyClassifier()
+    features = pd.Series(
+        {
+            "min_consumption_deviation": -0.82,
+            "max_state_error_rate": 0.31,
+            "max_sequence_divergence": 0.86,
+            "onset_slope": 0.31,
+            "median_duration_drift": 0.27,
+            "max_persistence_excess": 0.18,
+            "signed_consumption_deviation": -0.45,
+            "mean_dominant_state_word_fraction": 0.67,
+            "mean_state_word_transition_rate": 0.61,
+            "mean_nominal_state_word_match_fraction": 0.12,
+            "mixed_family_evidence": 1.0,
+            "peak_score": 1.9,
+        }
+    )
+
+    assignment = classifier.assign(pd.DataFrame(), FamilyAssignmentConfig(minimum_confidence=0.3), episode_features=features)
+
+    assert assignment.primary_family == "pump_abrupt_failure"
+    assert "process_saturation" in assignment.secondary_families
+    assert any("episode-level family resolution favored abrupt rupture" in item for item in assignment.evidence)
+
+
+
+def test_segmenter_splits_overlong_semantic_episode() -> None:
+    from iabm_incidents.segmentation import EpisodeSegmenter
+    from iabm_incidents.config import EpisodeDetectionConfig
+
+    frame = pd.DataFrame(
+        {
+            "start_time": pd.date_range("2022-01-01 00:00:00", periods=10, freq="24h"),
+            "end_time": pd.date_range("2022-01-01 12:00:00", periods=10, freq="24h"),
+            "deviation_score": [1.4, 1.5, 1.6, 1.2, 1.1, 1.0, 1.7, 1.8, 1.6, 1.5],
+            "semantic_status": ["ANOMALOUS"] * 10,
+            "incident_family": ["process_saturation"] * 10,
+        }
+    )
+    segmenter = EpisodeSegmenter()
+    segments = segmenter.segment(
+        frame,
+        EpisodeDetectionConfig(
+            onset_threshold=1.0,
+            recovery_threshold=0.5,
+            onset_windows=1,
+            recovery_windows=1,
+            minimum_duration=pd.Timedelta(hours=1),
+            maximum_gap=pd.Timedelta(hours=36),
+            maximum_duration=pd.Timedelta(days=3),
+        ),
+    )
+
+    assert len(segments) >= 3

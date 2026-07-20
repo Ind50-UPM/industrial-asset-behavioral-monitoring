@@ -45,6 +45,9 @@ DEFAULT_INCIDENT_TAXONOMY = {
                 "digital_electrical_mismatch",
                 "high_sequence_divergence",
                 "high_state_disagreement",
+                "stable_word_regime",
+                "far_from_nominal_word",
+                "rare_state_presence",
             ),
             minimum_assignment_score=0.70,
         ),
@@ -57,7 +60,7 @@ DEFAULT_INCIDENT_TAXONOMY = {
         signature=FamilySignature(
             family="float_recurrent_disturbance",
             required_features=("recurrence_excess",),
-            preferred_features=("persistence_excess", "sequence_divergence", "state_stability"),
+            preferred_features=("persistence_excess", "sequence_divergence", "state_stability", "word_regime_instability", "far_from_nominal_word", "word_distribution_shift"),
             minimum_assignment_score=0.60,
         ),
     ),
@@ -69,7 +72,7 @@ DEFAULT_INCIDENT_TAXONOMY = {
         signature=FamilySignature(
             family="process_saturation",
             required_features=("duration_drift", "persistence_excess"),
-            preferred_features=("mode_divergence", "non_negative_consumption_deviation"),
+            preferred_features=("mode_divergence", "non_negative_consumption_deviation", "persistent_word_regime", "near_nominal_word_with_duration_drift", "rare_word_pressure_without_state_shift"),
             minimum_assignment_score=0.60,
         ),
     ),
@@ -92,7 +95,7 @@ DEFAULT_INCIDENT_TAXONOMY = {
         recovery_regime="under_observation",
         signature=FamilySignature(
             family="external_ambiguous_disturbance",
-            preferred_features=("mixed_family_evidence", "cross_domain_deviation"),
+            preferred_features=("mixed_family_evidence", "cross_domain_deviation", "word_distribution_shift"),
             minimum_assignment_score=0.50,
         ),
     ),

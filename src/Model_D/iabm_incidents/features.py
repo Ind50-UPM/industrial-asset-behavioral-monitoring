@@ -29,6 +29,22 @@ FEATURE_COLUMNS = [
     "mean_mode_divergence",
     "dominant_family",
     "mixed_family_evidence",
+    "max_state_word_diversity",
+    "median_state_word_diversity",
+    "mean_dominant_state_word_fraction",
+    "mean_state_word_transition_rate",
+    "dominant_state_word_count",
+    "mean_nominal_state_word_match_fraction",
+    "mean_state_distance_to_nominal",
+    "mean_dtw_distance_to_nominal",
+    "mean_nominal_word_anomaly_score",
+    "mean_rare_word_fraction",
+    "mean_rare_state_fraction",
+    "max_state_entropy",
+    "mean_state_entropy",
+    "mean_state_17_fraction",
+    "mean_off_nominal_state_fraction",
+    "mean_word_regime_shift_score",
 ]
 
 
@@ -70,6 +86,22 @@ def build_episode_features(episodes: pd.DataFrame, window_scores: pd.DataFrame) 
             "mean_mode_divergence": _agg(episode_windows, "mode_divergence", "mean"),
             "dominant_family": _dominant_family(episode_windows),
             "mixed_family_evidence": _mixed_family_evidence(episode_windows),
+            "max_state_word_diversity": _agg(episode_windows, "state_word_diversity", "max"),
+            "median_state_word_diversity": _agg(episode_windows, "state_word_diversity", "median"),
+            "mean_dominant_state_word_fraction": _agg(episode_windows, "dominant_state_word_fraction", "mean"),
+            "mean_state_word_transition_rate": _agg(episode_windows, "state_word_transition_rate", "mean"),
+            "dominant_state_word_count": _dominant_state_word_count(episode_windows),
+            "mean_nominal_state_word_match_fraction": _agg(episode_windows, "nominal_state_word_match_fraction", "mean"),
+            "mean_state_distance_to_nominal": _agg(episode_windows, "mean_state_distance", "mean"),
+            "mean_dtw_distance_to_nominal": _agg(episode_windows, "mean_dtw_distance", "mean"),
+            "mean_nominal_word_anomaly_score": _agg(episode_windows, "mean_nominal_anomaly_score", "mean"),
+            "mean_rare_word_fraction": _agg(episode_windows, "rare_word_fraction", "mean"),
+            "mean_rare_state_fraction": _agg(episode_windows, "rare_state_fraction", "mean"),
+            "max_state_entropy": _agg(episode_windows, "state_entropy", "max"),
+            "mean_state_entropy": _agg(episode_windows, "state_entropy", "mean"),
+            "mean_state_17_fraction": _agg(episode_windows, "state_17_fraction", "mean"),
+            "mean_off_nominal_state_fraction": _agg(episode_windows, "off_nominal_state_fraction", "mean"),
+            "mean_word_regime_shift_score": _agg(episode_windows, "word_regime_shift_score", "mean"),
         }
         rows.append(row)
     return pd.DataFrame(rows, columns=FEATURE_COLUMNS)
@@ -119,6 +151,16 @@ def _mixed_family_evidence(frame: pd.DataFrame) -> float:
         return 0.0
     return 1.0 if frame["incident_family"].nunique(dropna=True) >= 2 else 0.0
 
+
+
+
+def _dominant_state_word_count(frame: pd.DataFrame) -> float:
+    if "dominant_state_word" not in frame.columns or frame.empty:
+        return 0.0
+    words = frame["dominant_state_word"].replace("", pd.NA).dropna()
+    if words.empty:
+        return 0.0
+    return float(words.nunique(dropna=True))
 
 def _onset_slope(frame: pd.DataFrame) -> float:
     if frame.empty or "deviation_score" not in frame.columns or len(frame) < 2:
