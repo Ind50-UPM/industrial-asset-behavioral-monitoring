@@ -6,6 +6,7 @@ incident-processing workflows from either semantic assignments or richer
 indicator-driven inputs.
 """
 
+from .anticipation import AnticipationConfig, AnticipationResult, AnticipatoryMaintenanceForecaster
 from .config import ModelDConfig
 from .episodes import CandidateSegment, IncidentEpisodeBuilder
 from .experimental import ExperimentResult, ModelDExperimentRunner
@@ -21,6 +22,9 @@ from .taxonomy import DEFAULT_INCIDENT_TAXONOMY, FAMILY_SIGNATURES, FamilySignat
 from .windows import WindowBuildConfig, build_rolling_windows
 
 __all__ = [
+    "AnticipationConfig",
+    "AnticipationResult",
+    "AnticipatoryMaintenanceForecaster",
     "CandidateSegment",
     "compute_window_indicators",
     "DEFAULT_INCIDENT_TAXONOMY",
